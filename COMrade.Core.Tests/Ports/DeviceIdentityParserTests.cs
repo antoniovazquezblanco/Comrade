@@ -34,7 +34,16 @@ public class DeviceIdentityParserTests
         var identity = DeviceIdentityParser.Parse("COM19", deviceId, locationPath: UsbLocation);
 
         Assert.Null(identity.SerialNumber);
+        Assert.Equal(deviceId.Split('\\')[2], identity.PlaceholderSerial);
         Assert.EndsWith($":loc:{UsbLocation}", identity.Key);
+    }
+
+    [Fact]
+    public void Unique_serial_numbers_are_not_placeholders()
+    {
+        var identity = DeviceIdentityParser.Parse("COM7", @"USB\VID_10C4&PID_EA60\D6E0B5F8A1C2EB11");
+
+        Assert.Null(identity.PlaceholderSerial);
     }
 
     [Fact]

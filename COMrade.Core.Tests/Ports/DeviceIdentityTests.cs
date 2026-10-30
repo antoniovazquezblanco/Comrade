@@ -48,6 +48,26 @@ public class DeviceIdentityTests
     }
 
     [Fact]
+    public void Same_model_with_the_same_placeholder_serial_is_a_placeholder_match()
+    {
+        var before = new DeviceIdentity("COM19", 0x10C4, 0xEA60, Location: "USB(1)", PlaceholderSerial: "0001");
+        var after = new DeviceIdentity("COM19", 0x10C4, 0xEA60, Location: "USB(4)", PlaceholderSerial: "0001");
+
+        Assert.False(before.IsSameDeviceAs(after));
+        Assert.True(before.IsPlaceholderMatch(after));
+    }
+
+    [Fact]
+    public void Placeholder_match_needs_the_same_model_and_placeholder()
+    {
+        var cp210x = new DeviceIdentity("COM19", 0x10C4, 0xEA60, Location: "USB(1)", PlaceholderSerial: "0001");
+
+        Assert.False(cp210x.IsPlaceholderMatch(cp210x with { ProductId = 0xEA70 }));
+        Assert.False(cp210x.IsPlaceholderMatch(cp210x with { PlaceholderSerial = "0000" }));
+        Assert.False(cp210x.IsPlaceholderMatch(cp210x with { PlaceholderSerial = null }));
+    }
+
+    [Fact]
     public void Usb_device_never_matches_a_non_usb_port_with_the_same_name()
     {
         var usb = new DeviceIdentity("COM5", 0x1A86, 0x7523, Location: "USB(3)");

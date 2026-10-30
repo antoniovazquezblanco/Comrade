@@ -19,7 +19,7 @@ public static partial class DeviceIdentityParser
             var hardware = Segment(deviceId, 1);
             var parts = hardware.Split('+', 3);
             if (parts.Length == 3 && TryParseVidPid(hardware, out var ftdiVid, out var ftdiPid))
-                return new DeviceIdentity(portName, ftdiVid, ftdiPid, UniqueSerialOrNull(NullIfEmpty(parts[2])), locationPath);
+                return UsbIdentity(portName, ftdiVid, ftdiPid, NullIfEmpty(parts[2]), locationPath);
         }
 
         // Each interface of a composite USB device (MI_xx) has a generated ID;
@@ -35,13 +35,19 @@ public static partial class DeviceIdentityParser
         var instance = Segment(usbId, 2);
         var serial = instance.Length == 0 || instance.Contains('&') ? null : instance;
 
-        return new DeviceIdentity(portName, vid, pid, UniqueSerialOrNull(serial), locationPath);
+        return UsbIdentity(portName, vid, pid, serial, locationPath);
     }
 
     // Some adapters ship with a placeholder serial number shared by every unit (Silicon Labs
-    // CP210x default "0001", all-zero serials); those cannot tell two adapters apart.
-    private static string? UniqueSerialOrNull(string? serial) =>
-        serial is null || serial == "0001" || serial.AsSpan().IndexOfAnyExcept('0') < 0 ? null : serial;
+    // CP210x default "0001", all-zero serials); those cannot tell two adapters apart, so the
+    // identity falls back to the USB location and keeps the placeholder only as a hint.
+    private static DeviceIdentity UsbIdentity(string portName, ushort vid, ushort pid, string? serial, string? locationPath) =>
+        serial is not null && IsPlaceholderSerial(serial)
+            ? new DeviceIdentity(portName, vid, pid, null, locationPath, PlaceholderSerial: serial)
+            : new DeviceIdentity(portName, vid, pid, serial, locationPath);
+
+    private static bool IsPlaceholderSerial(string serial) =>
+        serial == "0001" || serial.AsSpan().IndexOfAnyExcept('0') < 0;
 
     private static bool IsUsbDevice(string deviceId) => deviceId.StartsWith(@"USB\", IgnoreCase);
 
