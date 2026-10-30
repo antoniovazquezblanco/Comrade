@@ -10,6 +10,9 @@
     <Platform Solution="*|ARM64" Project="ARM64" />
   </Project>
   <Project Path="COMrade.Core/COMrade.Core.csproj" />
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+  </Folder>
   <Project Path="COMrade.Core.Tests/COMrade.Core.Tests.csproj" />
   <Project Path="COMrade.IntegrationTests/COMrade.IntegrationTests.csproj" />
 </Solution>
