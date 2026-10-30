@@ -13,11 +13,12 @@ public sealed class PortSession : IAsyncDisposable
     internal static readonly TimeSpan CloseTimeout = TimeSpan.FromSeconds(3);
 
     /// <summary>
-    /// Wait before each reopen attempt once the device is back; drivers often refuse the first
-    /// attempts while they are still starting.
+    /// Wait before each reopen attempt once the device is back. Drivers refuse to open the port
+    /// for a moment after the device appears (seen on CH340, CP210x and ESP32 USB alike), so even
+    /// the first attempt waits a little.
     /// </summary>
     internal static readonly TimeSpan[] ReopenDelays =
-        [TimeSpan.Zero, TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)];
+        [TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)];
 
     private const int ReadBufferSize = 4096;
 

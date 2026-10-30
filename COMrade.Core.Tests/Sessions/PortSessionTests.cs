@@ -260,6 +260,21 @@ public class PortSessionTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Reopen_gives_the_driver_a_moment_before_the_first_attempt()
+    {
+        await _session.OpenAsync();
+        await UnplugAsync(Ch340Id);
+
+        _ports.AddOrUpdate(Ch340("COM5"));
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.Equal(PortSessionState.Waiting, _session.State);
+        Assert.Single(_driver.Connections);
+
+        _time.Advance(PortSession.ReopenDelays[0]);
+        await WaitForAsync(() => _session.State == PortSessionState.Open);
+    }
+
+    [Fact]
     public async Task Reopen_retries_while_the_driver_is_still_starting()
     {
         await _session.OpenAsync();
@@ -393,10 +408,12 @@ public class PortSessionTests : IAsyncDisposable
         await (session ?? _session).DeviceEventsHandled;
     }
 
+    // Reopening waits on the fake clock, so time moves forward until the arrival is handled.
     private async Task PlugAsync(PortDevice device, PortSession? session = null)
     {
         _ports.AddOrUpdate(device);
-        await (session ?? _session).DeviceEventsHandled;
+        var handled = (session ?? _session).DeviceEventsHandled;
+        await AdvanceTimeUntilAsync(() => handled.IsCompleted);
     }
 
     private static PortDevice Ch340(string portName) =>

@@ -43,3 +43,7 @@ jobs:
 
       - name: Test
         run: dotnet test --project COMrade.Core.Tests -c Release
+
+      # Tests that need real serial ports skip themselves on the runner.
+      - name: Integration tests
+        run: dotnet test --project COMrade.IntegrationTests -c Release
