@@ -7,6 +7,8 @@
 **A native Windows serial port utility.**
 
 [![Build](https://github.com/antoniovazquezblanco/Comrade/actions/workflows/build.yml/badge.svg)](https://github.com/antoniovazquezblanco/Comrade/actions/workflows/build.yml)
+[![CodeQL](https://github.com/antoniovazquezblanco/Comrade/actions/workflows/codeql.yml/badge.svg)](https://github.com/antoniovazquezblanco/Comrade/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/antoniovazquezblanco/Comrade/badge)](https://scorecard.dev/viewer/?uri=github.com/antoniovazquezblanco/Comrade)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![WinUI](https://img.shields.io/badge/WinUI-3-60CDFF)
