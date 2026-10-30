@@ -20,7 +20,7 @@
 
 Requirements:
 
-- Windows 10 version 1809 or later
+- Windows 10 version 1809 or later, x64 (the terminal control does not support x86 or ARM64 yet)
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - Optional: Visual Studio 2026 with the WinUI application development workload
 

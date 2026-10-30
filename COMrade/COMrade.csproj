@@ -10,8 +10,10 @@
     <Version>0.1.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\COMrade.ico</ApplicationIcon>
-    <Platforms>x86;x64;ARM64</Platforms>
-    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- x64 only for now: the terminal control's managed wrapper ships for x64 only
+         (see .planning/decisions/0001-terminal-engine.md). -->
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <UseWinUI>true</UseWinUI>
     <Nullable>enable</Nullable>
 
@@ -19,26 +21,31 @@
          so the build output runs on any Windows 10 1809+ machine as-is. -->
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
-  </PropertyGroup>
 
-  <!-- Self-contained Windows App SDK needs a runtime identifier; default to the
-       selected platform, or x64 when building from the command line. -->
-  <PropertyGroup Condition="'$(RuntimeIdentifier)' == ''">
-    <RuntimeIdentifier Condition="'$(Platform)' == 'x86'">win-x86</RuntimeIdentifier>
-    <RuntimeIdentifier Condition="'$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
-    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <TerminalControlVersion>1.0.20-beta.1</TerminalControlVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="ThirdPartyNotices.txt" CopyToOutputDirectory="PreserveNewest" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="CI.Microsoft.Terminal.WinUI3.Unofficial" Version="$(TerminalControlVersion)" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.4" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2957" />
+  </ItemGroup>
+
+  <!-- Workaround for the terminal control package: it loads ms-appx:///TerminalControl.xaml from the
+       app root but ships its compiled XAML in a subfolder, so the control fails to load without this. -->
+  <ItemGroup>
+    <Content Include="$(NuGetPackageRoot)ci.microsoft.terminal.winui3.unofficial\$(TerminalControlVersion)\lib\net8.0-windows10.0.19041\Microsoft.Terminal.WinUI3\TerminalControl.xbf"
+             Link="TerminalControl.xbf"
+             CopyToOutputDirectory="PreserveNewest"
+             Visible="false" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,18 +1,11 @@
 <Solution>
   <Configurations>
     <Platform Name="x64" />
-    <Platform Name="x86" />
-    <Platform Name="ARM64" />
   </Configurations>
   <Project Path="COMrade/COMrade.csproj">
     <Platform Solution="*|x64" Project="x64" />
-    <Platform Solution="*|x86" Project="x86" />
-    <Platform Solution="*|ARM64" Project="ARM64" />
   </Project>
   <Project Path="COMrade.Core/COMrade.Core.csproj" />
-  <Folder Name="/Solution Items/">
-    <File Path="README.md" />
-  </Folder>
   <Project Path="COMrade.Core.Tests/COMrade.Core.Tests.csproj" />
   <Project Path="COMrade.IntegrationTests/COMrade.IntegrationTests.csproj" />
 </Solution>

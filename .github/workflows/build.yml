@@ -16,7 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [x64, x86, ARM64]
+        # x64 only while the terminal control ships for x64 only; add x86 and ARM64 back when it does.
+        platform: [x64]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

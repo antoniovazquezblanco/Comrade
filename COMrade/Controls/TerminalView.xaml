@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="COMrade.Controls.TerminalView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:term="using:Microsoft.Terminal.Wpf">
+    <Grid Background="#121212">
+        <!-- A native child window: no WinUI element can be drawn on top of it. -->
+        <term:TerminalControl x:Name="Term" />
+    </Grid>
+</UserControl>

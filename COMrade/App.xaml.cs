@@ -1,4 +1,7 @@
 using System;
+using COMrade.Core.Ports;
+using COMrade.Core.Serial;
+using COMrade.Core.Sessions;
 using COMrade.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -28,6 +31,11 @@ public partial class App : Application
     private static ServiceProvider ConfigureServices()
     {
         var services = new ServiceCollection();
+
+        services.AddSingleton<PortList>();
+        services.AddSingleton<PortWatcher>();
+        services.AddSingleton<OpenSerialConnection>(SerialConnection.OpenAsync);
+        services.AddSingleton<PortSessions>();
 
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
