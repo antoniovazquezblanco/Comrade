@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs>
+<linearGradient id="gb" gradientUnits="userSpaceOnUse" x1="194" y1="255" x2="63" y2="28"><stop offset="0" stop-color="#333333"/><stop offset="1" stop-color="#4D4D4D"/></linearGradient>
+<linearGradient id="cyw" gradientUnits="userSpaceOnUse" x1="216" y1="176" x2="40" y2="120"><stop offset="0" stop-color="#3DBBF5"/><stop offset="1" stop-color="#8FE3FF"/></linearGradient>
+<filter id="gs" filterUnits="userSpaceOnUse" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="2.7" stdDeviation="2.7" flood-color="#000000" flood-opacity="0.1"/><feDropShadow dx="0" dy="5.3" stdDeviation="8" flood-color="#000000" flood-opacity="0.2"/></filter>
+</defs>
+<path d="M 245 224 H 11 Q 0 224 0 213 V 64 H 256 V 213 Q 256 224 245 224 Z" fill="url(#gb)"/>
+<path d="M 0 69 V 43 Q 0 32 11 32 H 85 V 69 Z" fill="#CCCCCC"/>
+<rect x="85" y="32" width="86" height="37" fill="#999999"/>
+<path d="M 171 32 H 245 Q 256 32 256 43 V 69 H 171 Z" fill="#666666"/>
+<g filter="url(#gs)"><path d="M 40 120 H 68 V 176 H 108 V 120 H 148 V 176 H 188 V 120 H 216" fill="none" stroke="url(#cyw)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>
