@@ -15,7 +15,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TitleBar x:Name="AppTitleBar" Title="COMrade">
+        <TitleBar x:Name="AppTitleBar" Title="{x:Bind ViewModel.Title, Mode=OneWay}">
             <TitleBar.IconSource>
                 <ImageIconSource ImageSource="ms-appx:///Assets/TitleBarIcon.png" />
             </TitleBar.IconSource>

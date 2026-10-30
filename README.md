@@ -28,7 +28,13 @@ Build and run from the command line:
 
 ```powershell
 dotnet build COMrade.slnx -c Release -p:Platform=x64
-dotnet run --project src\COMrade
+dotnet run --project COMrade
+```
+
+Run the unit tests:
+
+```powershell
+dotnet test --project COMrade.Core.Tests
 ```
 
 Or open `COMrade.slnx` in Visual Studio and press <kbd>F5</kbd>.
