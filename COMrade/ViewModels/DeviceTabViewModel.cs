@@ -71,6 +71,8 @@ public sealed partial class DeviceTabViewModel : TabViewModel
 
     public override string Header => $"{PortName} · {Session.Port.Description}";
 
+    public override string ShortHeader => PortName;
+
     public override string WindowTitle => $"COMrade - {PortName}";
 
     public string PortName => Session.Port.PortName;

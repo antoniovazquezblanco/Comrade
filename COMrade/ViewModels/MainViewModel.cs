@@ -23,6 +23,7 @@ public sealed partial class MainViewModel : ObservableObject
         _sessions = sessions;
         _devices = devices;
         _settings = settings;
+        _settings.Changed += OnSettingsChanged;
     }
 
     public PortListViewModel PortList { get; }
@@ -36,6 +37,8 @@ public sealed partial class MainViewModel : ObservableObject
     public bool ShowEmptyState => Tabs.Count == 0;
 
     public string Title => SelectedTab?.WindowTitle ?? "COMrade";
+
+    partial void OnSelectedTabChanged(TabViewModel? value) => UpdateTabTitles();
 
     /// <summary>
     /// Shows the device's tab, creating it with the settings remembered for the device, or the
@@ -89,6 +92,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Closes every port when the window closes.</summary>
     public async Task CloseAllAsync()
     {
+        _settings.Changed -= OnSettingsChanged;
         foreach (var tab in Tabs.ToList())
         {
             tab.PropertyChanged -= OnTabPropertyChanged;
@@ -103,6 +107,18 @@ public sealed partial class MainViewModel : ObservableObject
         tab.PropertyChanged += OnTabPropertyChanged;
         Tabs.Add(tab);
         OnPropertyChanged(nameof(ShowEmptyState));
+        UpdateTabTitles();
+    }
+
+    // The settings page changes the tab mode; it saves on the UI thread.
+    private void OnSettingsChanged(object? sender, EventArgs e) => UpdateTabTitles();
+
+    // In compact mode, every tab but the selected one shows its short title.
+    private void UpdateTabTitles()
+    {
+        var compact = _settings.Current.TabMode is TabMode.Compact;
+        foreach (var tab in Tabs)
+            tab.IsCompact = compact && tab != SelectedTab;
     }
 
     // The COM number of a device can change while its tab is open.
