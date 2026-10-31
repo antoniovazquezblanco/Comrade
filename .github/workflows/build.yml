@@ -37,6 +37,7 @@ jobs:
         run: dotnet publish COMrade/COMrade.csproj -c Release -p:Platform=${{ matrix.platform }} -p:SelfContained=true -o publish/COMrade
 
       - name: Distribution
+        id: distribution
         shell: pwsh
         env:
           PLATFORM: ${{ matrix.platform }}
@@ -44,13 +45,25 @@ jobs:
           $version = ((Get-Item publish/COMrade/COMrade.dll).VersionInfo.ProductVersion -split '\+')[0]
           New-Item -ItemType Directory dist | Out-Null
           Compress-Archive -Path publish/COMrade -DestinationPath "dist/COMrade-$version-win-$env:PLATFORM.zip"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Installer
+        shell: pwsh
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          VERSION: ${{ steps.distribution.outputs.version }}
+        run: |
+          dotnet build COMrade.Installer -c Release -p:AppFolder="$PWD/publish/COMrade" -p:ProductVersion=$(($env:VERSION -split '-')[0])
+          Copy-Item COMrade.Installer/bin/Release/en-US/COMrade.msi "dist/COMrade-$env:VERSION-win-$env:PLATFORM.msi"
 
       - name: Upload distribution
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: distribution-${{ matrix.platform }}
           if-no-files-found: error
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/*.msi
 
   test:
     name: Test
@@ -94,8 +107,8 @@ jobs:
       - name: Sign distributions
         shell: bash
         run: |
-          for zip in dist/*.zip; do
-            cosign sign-blob --yes --bundle "$zip.sigstore.json" "$zip"
+          for file in dist/*.zip dist/*.msi; do
+            cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
           done
 
       - name: Publish release
@@ -103,6 +116,7 @@ jobs:
         with:
           files: |
             dist/*.zip
+            dist/*.msi
             dist/*.sigstore.json
           fail_on_unmatched_files: true
           generate_release_notes: true

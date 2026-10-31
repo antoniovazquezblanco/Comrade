@@ -1,0 +1,57 @@
+<!--
+  COMrade for one user or for every user of the machine, chosen in the installer:
+  - Just for you (the default): no administrator rights needed, installed in
+    %LOCALAPPDATA%\Programs\COMrade.
+  - For all users: needs administrator rights, installed in %ProgramFiles%\COMrade.
+  Either way with a Start menu entry and an entry in Settings > Apps. A newer version installs over
+  an older one of the same scope; settings in %LOCALAPPDATA%\COMrade are kept.
+  Unattended: msiexec /i COMrade.msi /qn installs for the current user, add ALLUSERS=1 for all users.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="COMrade"
+    Manufacturer="COMrade"
+    Version="$(ProductVersion)"
+    UpgradeCode="b6370627-ab22-4efd-a5ee-a7e165e36aca"
+    Scope="perUserOrMachine"
+    Compressed="yes">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of COMrade is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="COMrade.ico" SourceFile="$(AppFolder)\Assets\COMrade.ico" />
+    <Property Id="ARPPRODUCTICON" Value="COMrade.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/antoniovazquezblanco/Comrade" />
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" After="CostFinalize" />
+
+    <!-- A per-user install redirects Program Files to %LOCALAPPDATA%\Programs. -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="COMrade" />
+    </StandardDirectory>
+
+    <!-- Every file of the self-contained publish, sub-folders included. -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(AppFolder)\**" />
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut
+          Name="COMrade"
+          Description="Serial port terminal"
+          Target="[INSTALLFOLDER]COMrade.exe"
+          WorkingDirectory="INSTALLFOLDER" />
+        <!-- A shortcut needs a registry value as its key path: HKCU or HKLM, following the scope. -->
+        <RegistryValue Root="HKMU" Key="Software\COMrade" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+        <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <UIRef Id="WixUI_COMrade" />
+  </Package>
+</Wix>

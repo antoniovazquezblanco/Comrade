@@ -37,10 +37,15 @@ other control keys devices use.
 
 ## Download
 
-Get the latest `COMrade-<version>-win-x64.zip` from the
-[releases](https://github.com/antoniovazquezblanco/Comrade/releases/latest), unzip it anywhere and run
-`COMrade.exe`. Nothing to install: .NET and the Windows App SDK come with it. Each zip has a Sigstore
-signature (`.sigstore.json`) made by the release workflow.
+From the [latest release](https://github.com/antoniovazquezblanco/Comrade/releases/latest), get either:
+
+- `COMrade-<version>-win-x64.msi`: Installs COMrade with a Start menu entry, either just for you
+  (no administrator rights needed) or for every user of the computer. A newer version installs over
+  it and keeps your settings.
+- `COMrade-<version>-win-x64.zip`: A portable copy. Unzip it anywhere and run `COMrade.exe`.
+
+Both include .NET and the Windows App SDK. Each file has a Sigstore signature (`.sigstore.json`) made
+by the release workflow.
 
 Requirements: Windows 10 version 1809 or later, x64.
 

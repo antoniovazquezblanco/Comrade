@@ -1,0 +1,6 @@
+<!-- The scope page's texts, without the folder choice COMrade's installer does not offer. -->
+<WixLocalization Culture="en-US" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="InstallScopeDlgDescription" Value="Choose who can use [ProductName]" />
+  <String Id="InstallScopeDlgPerUserDescription" Value="[ProductName] will be installed in your user profile, in %LOCALAPPDATA%\Programs, and be available just for your user account. You do not need administrator rights." />
+  <String Id="InstallScopeDlgPerMachineDescription" Value="[ProductName] will be installed in Program Files and be available for every user of this computer. You need administrator rights." />
+</WixLocalization>
