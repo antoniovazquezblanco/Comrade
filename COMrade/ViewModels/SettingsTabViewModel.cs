@@ -1,12 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using COMrade.Core.Settings;
+using COMrade.Core.Terminal;
+using COMrade.Terminal;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
+using Windows.UI;
 
 namespace COMrade.ViewModels;
 
@@ -51,6 +56,72 @@ public sealed partial class SettingsTabViewModel : TabViewModel
         }
     }
 
+    // Terminal: font, colours and cursor of every terminal, applied as they change.
+
+    public static IReadOnlyList<string> FontFamilies => MonospaceFonts.All;
+
+    public static IReadOnlyList<string> ColorSchemeNames { get; } = [.. ColorScheme.All.Select(scheme => scheme.Name)];
+
+    public static IReadOnlyList<string> CursorOptions { get; } = ["Block", "Bar", "Underline"];
+
+    public double MinimumFontSize => TerminalAppearance.MinimumFontSize;
+
+    public double MaximumFontSize => TerminalAppearance.MaximumFontSize;
+
+    public string FontFamily
+    {
+        get => Appearance.FontFamily;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                SaveAppearance(Appearance with { FontFamily = value.Trim() });
+        }
+    }
+
+    public double FontSize
+    {
+        get => Appearance.FontSize;
+        set
+        {
+            if (!double.IsNaN(value))
+                SaveAppearance(Appearance with { FontSize = (int)Math.Clamp(Math.Round(value), MinimumFontSize, MaximumFontSize) });
+        }
+    }
+
+    public int ColorSchemeIndex
+    {
+        get => Math.Max(0, ColorScheme.All.ToList().IndexOf(Appearance.Scheme));
+        set
+        {
+            if (value >= 0)
+                SaveAppearance(Appearance with { ColorScheme = ColorScheme.All[value].Name });
+        }
+    }
+
+    public int CursorIndex
+    {
+        get => (int)Appearance.Cursor;
+        set
+        {
+            if (value >= 0)
+                SaveAppearance(Appearance with { Cursor = (CursorShape)value });
+        }
+    }
+
+    public Microsoft.UI.Xaml.Media.FontFamily PreviewFontFamily => new(Appearance.FontFamily);
+
+    /// <summary>The terminal's size is in points; XAML's in pixels at 96 DPI.</summary>
+    public double PreviewFontSize => Appearance.FontSize * 96.0 / 72.0;
+
+    public Color PreviewBackground => ToColor(Appearance.Scheme.Background);
+
+    public Color PreviewForeground => ToColor(Appearance.Scheme.Foreground);
+
+    /// <summary>The 16 ANSI colours of the scheme, normal then bright.</summary>
+    public IReadOnlyList<Color> PreviewPalette => [.. Appearance.Scheme.Palette.Select(ToColor)];
+
+    private TerminalAppearance Appearance => _settings.Current.TerminalOrDefault;
+
     /// <summary>Settings for a device COMrade has not seen before.</summary>
     public DeviceSettingsEditor NewDevice { get; }
 
@@ -86,6 +157,16 @@ public sealed partial class SettingsTabViewModel : TabViewModel
         OnPropertyChanged(nameof(IsScrollingTabs));
         OnPropertyChanged(nameof(IsCompactTabs));
     }
+
+    private void SaveAppearance(TerminalAppearance appearance)
+    {
+        if (appearance == Appearance)
+            return;
+        _settings.Save(_settings.Current with { Terminal = appearance });
+        OnPropertyChanged(string.Empty);
+    }
+
+    private static Color ToColor(uint rgb) => Color.FromArgb(0xFF, (byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
 
     private Task<bool> ApplyNewDeviceAsync(DeviceSettings newDevice)
     {

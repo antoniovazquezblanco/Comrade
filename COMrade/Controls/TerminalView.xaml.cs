@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using COMrade.Core.Terminal;
@@ -6,6 +7,7 @@ using Microsoft.Terminal.Wpf;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace COMrade.Controls;
@@ -20,11 +22,9 @@ public sealed partial class TerminalView : UserControl
 {
     private const string CtrlC = "\u0003";
     private const string CtrlV = "\u0016";
-    private const string TerminalFont = "Cascadia Mono";
-    private const short TerminalFontSize = 11;
 
     private readonly TerminalConnection _connection = new();
-    private bool _themed;
+    private TerminalAppearance _appearance = TerminalAppearance.Default;
     private (int Width, int Height)? _cell;
     private double _cellScale;
 
@@ -39,7 +39,7 @@ public sealed partial class TerminalView : UserControl
         RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => Term.Visibility = Visibility);
         Loaded += (_, _) =>
         {
-            ApplyTheme();
+            ApplyAppearance();
             ShowScrollBar();
         };
     }
@@ -54,6 +54,20 @@ public sealed partial class TerminalView : UserControl
     public void Clear() => _connection.Write("\e[2J\e[3J\e[H"u8);
 
     public void FocusTerminal() => Term.Focus(FocusState.Programmatic);
+
+    /// <summary>Font, colours and cursor; applied at once, also to text already shown.</summary>
+    public TerminalAppearance Appearance
+    {
+        get => _appearance;
+        set
+        {
+            if (value == _appearance)
+                return;
+            _appearance = value;
+            if (IsLoaded)
+                ApplyAppearance();
+        }
+    }
 
     /// <summary>Copies the selected text, if any.</summary>
     public void Copy()
@@ -116,28 +130,29 @@ public sealed partial class TerminalView : UserControl
         InputReceived?.Invoke(this, data);
     }
 
-    private void ApplyTheme()
+    private void ApplyAppearance()
     {
-        if (_themed)
-            return;
-        _themed = true;
-
+        var scheme = _appearance.Scheme;
         var theme = new TerminalTheme
         {
-            DefaultBackground = Rgb(0x12, 0x12, 0x12),
-            DefaultForeground = Rgb(0xCC, 0xCC, 0xCC),
-            DefaultSelectionBackground = Rgb(0x26, 0x4F, 0x78),
-            CursorStyle = CursorStyle.BlinkingBlock,
-            // Campbell, Windows Terminal's default scheme.
-            ColorTable =
-            [
-                Rgb(0x0C, 0x0C, 0x0C), Rgb(0xC5, 0x0F, 0x1F), Rgb(0x13, 0xA1, 0x0E), Rgb(0xC1, 0x9C, 0x00),
-                Rgb(0x00, 0x37, 0xDA), Rgb(0x88, 0x17, 0x98), Rgb(0x3A, 0x96, 0xDD), Rgb(0xCC, 0xCC, 0xCC),
-                Rgb(0x76, 0x76, 0x76), Rgb(0xE7, 0x48, 0x56), Rgb(0x16, 0xC6, 0x0C), Rgb(0xF9, 0xF1, 0xA5),
-                Rgb(0x3B, 0x78, 0xFF), Rgb(0xB4, 0x00, 0x9E), Rgb(0x61, 0xD6, 0xD6), Rgb(0xF2, 0xF2, 0xF2),
-            ],
+            DefaultBackground = ColorRef(scheme.Background),
+            DefaultForeground = ColorRef(scheme.Foreground),
+            DefaultSelectionBackground = ColorRef(scheme.SelectionBackground),
+            CursorStyle = _appearance.Cursor switch
+            {
+                CursorShape.Bar => CursorStyle.BlinkingBar,
+                CursorShape.Underline => CursorStyle.BlinkingUnderline,
+                _ => CursorStyle.BlinkingBlock,
+            },
+            ColorTable = [.. scheme.Palette.Select(ColorRef)],
         };
-        Term.SetTheme(theme, TerminalFont, TerminalFontSize, System.Drawing.Color.FromArgb(0x12, 0x12, 0x12));
+        var fontSize = (short)Math.Clamp(_appearance.FontSize, TerminalAppearance.MinimumFontSize, TerminalAppearance.MaximumFontSize);
+        var background = System.Drawing.Color.FromArgb(unchecked((int)(0xFF000000 | scheme.Background)));
+        Term.SetTheme(theme, _appearance.FontFamily, fontSize, background);
+        Root.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, background.R, background.G, background.B));
+
+        // Another font or size has other cells: work them out again for grid snapping.
+        _cell = null;
     }
 
     // The control's scroll bar for the scrollback is a plain WinUI ScrollBar, which draws nothing
@@ -148,8 +163,8 @@ public sealed partial class TerminalView : UserControl
             scrollBar.IndicatorMode = ScrollingIndicatorMode.MouseIndicator;
     }
 
-    // The control takes colours as Win32 COLORREF values: 0x00BBGGRR.
-    private static uint Rgb(byte red, byte green, byte blue) => (uint)(red | (green << 8) | (blue << 16));
+    // The control takes colours as Win32 COLORREF values, 0x00BBGGRR; COMrade keeps 0xRRGGBB.
+    private static uint ColorRef(uint rgb) => ((rgb >> 16) & 0xFF) | (rgb & 0xFF00) | ((rgb & 0xFF) << 16);
 
     private static void CopyToClipboard(string text)
     {

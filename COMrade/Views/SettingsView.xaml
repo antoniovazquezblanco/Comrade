@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="using:COMrade.Views"
+    xmlns:ui="using:Windows.UI"
     xmlns:vm="using:COMrade.ViewModels">
 
     <UserControl.Resources>
@@ -44,6 +45,95 @@
                             Content="Scrolling: every tab keeps its full title and the tab strip scrolls"
                             GroupName="TabMode"
                             IsChecked="{x:Bind ViewModel.IsScrollingTabs, Mode=TwoWay}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource SectionStyle}">
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="2">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Terminal" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Font, colours and cursor of every terminal; open tabs change at once."
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Grid ColumnSpacing="12" RowSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <!-- Editable: any installed font can be typed, not only the fixed-pitch ones listed. -->
+                            <ComboBox
+                                HorizontalAlignment="Stretch"
+                                Header="Font"
+                                IsEditable="True"
+                                ItemsSource="{x:Bind vm:SettingsTabViewModel.FontFamilies}"
+                                SelectedItem="{x:Bind ViewModel.FontFamily, Mode=OneWay}"
+                                Text="{x:Bind ViewModel.FontFamily, Mode=TwoWay}" />
+                            <NumberBox
+                                Grid.Column="1"
+                                Header="Size"
+                                Maximum="{x:Bind ViewModel.MaximumFontSize}"
+                                Minimum="{x:Bind ViewModel.MinimumFontSize}"
+                                SpinButtonPlacementMode="Inline"
+                                Value="{x:Bind ViewModel.FontSize, Mode=TwoWay}" />
+                            <ComboBox
+                                Grid.Row="1"
+                                HorizontalAlignment="Stretch"
+                                Header="Colour scheme"
+                                ItemsSource="{x:Bind vm:SettingsTabViewModel.ColorSchemeNames}"
+                                SelectedIndex="{x:Bind ViewModel.ColorSchemeIndex, Mode=TwoWay}" />
+                            <ComboBox
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                Header="Cursor"
+                                ItemsSource="{x:Bind vm:SettingsTabViewModel.CursorOptions}"
+                                SelectedIndex="{x:Bind ViewModel.CursorIndex, Mode=TwoWay}" />
+                        </Grid>
+                        <!-- Preview in the chosen font and colours, with the 16 colours devices can use. -->
+                        <Border Padding="14,10" CornerRadius="4">
+                            <Border.Background>
+                                <SolidColorBrush Color="{x:Bind ViewModel.PreviewBackground, Mode=OneWay}" />
+                            </Border.Background>
+                            <StackPanel Spacing="8">
+                                <TextBlock
+                                    FontFamily="{x:Bind ViewModel.PreviewFontFamily, Mode=OneWay}"
+                                    FontSize="{x:Bind ViewModel.PreviewFontSize, Mode=OneWay}"
+                                    Text="U-Boot 2026.10 (Oct 31 2026)&#x0a;Hit any key to stop autoboot:  3">
+                                    <TextBlock.Foreground>
+                                        <SolidColorBrush Color="{x:Bind ViewModel.PreviewForeground, Mode=OneWay}" />
+                                    </TextBlock.Foreground>
+                                </TextBlock>
+                                <ItemsRepeater ItemsSource="{x:Bind ViewModel.PreviewPalette, Mode=OneWay}">
+                                    <ItemsRepeater.Layout>
+                                        <UniformGridLayout
+                                            MaximumRowsOrColumns="8"
+                                            MinColumnSpacing="4"
+                                            MinItemHeight="14"
+                                            MinItemWidth="24"
+                                            MinRowSpacing="4" />
+                                    </ItemsRepeater.Layout>
+                                    <ItemsRepeater.ItemTemplate>
+                                        <DataTemplate x:DataType="ui:Color">
+                                            <Rectangle
+                                                Width="24"
+                                                Height="14"
+                                                RadiusX="2"
+                                                RadiusY="2">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{x:Bind}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </DataTemplate>
+                                    </ItemsRepeater.ItemTemplate>
+                                </ItemsRepeater>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
 

@@ -4,7 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:COMrade.Controls">
-    <Grid Background="#121212">
+    <Grid x:Name="Root" Background="#0C0C0C">
         <!-- A native child window: no WinUI element can be drawn on top of it. -->
         <controls:SafeTerminalControl x:Name="Term" />
     </Grid>

@@ -31,7 +31,7 @@ public sealed class WindowManager(IServiceProvider services, PortWatcher watcher
     /// <summary>Opens an empty window, with the same size as <paramref name="like"/> when given.</summary>
     public MainWindow OpenWindow(MainWindow? like = null, PointInt32? position = null)
     {
-        var window = new MainWindow(ActivatorUtilities.CreateInstance<MainViewModel>(services), this);
+        var window = ActivatorUtilities.CreateInstance<MainWindow>(services, ActivatorUtilities.CreateInstance<MainViewModel>(services), this);
         if (like is not null)
             window.AppWindow.Resize(like.AppWindow.Size);
         if (position is { } at)

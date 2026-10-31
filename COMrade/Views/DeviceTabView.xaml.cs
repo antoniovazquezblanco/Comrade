@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using COMrade.Core.Sessions;
+using COMrade.Core.Settings;
 using COMrade.Terminal;
 using COMrade.ViewModels;
 using Microsoft.UI.Xaml;
@@ -12,12 +13,18 @@ namespace COMrade.Views;
 public sealed partial class DeviceTabView : UserControl, IDisposable
 {
     private readonly DeviceTerminal _terminal;
+    private readonly AppSettingsStore _settings;
     private bool _wasOpen;
 
-    public DeviceTabView(DeviceTabViewModel viewModel)
+    public DeviceTabView(DeviceTabViewModel viewModel, AppSettingsStore settings)
     {
         ViewModel = viewModel;
+        _settings = settings;
         InitializeComponent();
+
+        // The terminal follows the appearance in the settings, also while it is open.
+        Terminal.Appearance = settings.Current.TerminalOrDefault;
+        settings.Changed += OnSettingsChanged;
 
         _terminal = new DeviceTerminal(viewModel.Session, Terminal, viewModel.Settings.Terminal, viewModel.History);
         viewModel.TerminalSettingsChanged += OnTerminalSettingsChanged;
@@ -42,6 +49,7 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
 
     public void Dispose()
     {
+        _settings.Changed -= OnSettingsChanged;
         ViewModel.TerminalSettingsChanged -= OnTerminalSettingsChanged;
         ViewModel.TerminalMessage -= OnTerminalMessage;
         ViewModel.ClearRequested -= OnClearRequested;
@@ -52,6 +60,9 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
     private void OnTerminalSettingsChanged(object? sender, EventArgs e) => _terminal.Settings = ViewModel.Settings.Terminal;
 
     private void OnTerminalMessage(object? sender, string message) => _terminal.Show(message);
+
+    // The settings page saves on the UI thread.
+    private void OnSettingsChanged(object? sender, EventArgs e) => Terminal.Appearance = _settings.Current.TerminalOrDefault;
 
     private void OnClearRequested(object? sender, EventArgs e) => _terminal.Clear();
 
