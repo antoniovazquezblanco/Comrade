@@ -31,6 +31,26 @@ public sealed partial class SettingsTabViewModel : TabViewModel
 
     public override string WindowTitle => "COMrade - Settings";
 
+    public bool IsScrollingTabs
+    {
+        get => _settings.Current.TabMode is TabMode.Scrolling;
+        set
+        {
+            if (value)
+                SetTabMode(TabMode.Scrolling);
+        }
+    }
+
+    public bool IsCompactTabs
+    {
+        get => _settings.Current.TabMode is TabMode.Compact;
+        set
+        {
+            if (value)
+                SetTabMode(TabMode.Compact);
+        }
+    }
+
     /// <summary>Settings for a device COMrade has not seen before.</summary>
     public DeviceSettingsEditor NewDevice { get; }
 
@@ -59,6 +79,13 @@ public sealed partial class SettingsTabViewModel : TabViewModel
         Process.Start(new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "ThirdPartyNotices.txt")) { UseShellExecute = true });
 
     public override void Dispose() => _devices.Changed -= OnDevicesChanged;
+
+    private void SetTabMode(TabMode mode)
+    {
+        _settings.Save(_settings.Current with { TabMode = mode });
+        OnPropertyChanged(nameof(IsScrollingTabs));
+        OnPropertyChanged(nameof(IsCompactTabs));
+    }
 
     private Task<bool> ApplyNewDeviceAsync(DeviceSettings newDevice)
     {

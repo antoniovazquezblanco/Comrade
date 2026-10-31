@@ -94,7 +94,7 @@
                                                 <SolidColorBrush Color="{x:Bind StatusColor, Mode=OneWay}" />
                                             </Ellipse.Fill>
                                         </Ellipse>
-                                        <TextBlock Text="{x:Bind Header, Mode=OneWay}" />
+                                        <TextBlock Text="{x:Bind TabTitle, Mode=OneWay}" />
                                     </StackPanel>
                                 </TabViewItem.Header>
                             </TabViewItem>
@@ -106,7 +106,7 @@
                                 <TabViewItem.Header>
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <FontIcon FontSize="12" Glyph="&#xE713;" />
-                                        <TextBlock Text="{x:Bind Header}" />
+                                        <TextBlock Text="{x:Bind TabTitle, Mode=OneWay}" />
                                     </StackPanel>
                                 </TabViewItem.Header>
                             </TabViewItem>
