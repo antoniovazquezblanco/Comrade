@@ -35,6 +35,21 @@ public class SerialConnectionTests
     }
 
     [Fact]
+    public async Task Closing_the_port_ends_a_waiting_read_quietly()
+    {
+        var connection = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, Cancellation);
+        using var session = new CancellationTokenSource();
+        var read = connection.ReadAsync(new byte[256], session.Token).AsTask();
+        await Task.Delay(300, Cancellation);
+
+        // As a session does on Close port: cancel the read, then close.
+        await session.CancelAsync();
+        await connection.DisposeAsync();
+
+        Assert.Equal(0, await read.WaitAsync(TimeSpan.FromSeconds(5), Cancellation));
+    }
+
+    [Fact]
     public async Task Port_reopens_after_being_closed()
     {
         var first = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, Cancellation);

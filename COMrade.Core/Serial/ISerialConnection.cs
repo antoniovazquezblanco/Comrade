@@ -8,7 +8,10 @@ namespace COMrade.Core.Serial;
 /// </remarks>
 public interface ISerialConnection : IAsyncDisposable
 {
-    /// <summary>Waits for incoming bytes and copies them into <paramref name="buffer"/>; returns how many.</summary>
+    /// <summary>
+    /// Waits for incoming bytes and copies them into <paramref name="buffer"/>; returns how many, or
+    /// may return 0 once <paramref name="cancellationToken"/> is cancelled.
+    /// </summary>
     ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken);
 
     ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken);
