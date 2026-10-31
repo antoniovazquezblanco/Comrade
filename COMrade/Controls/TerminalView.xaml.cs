@@ -24,6 +24,7 @@ public sealed partial class TerminalView : UserControl
     private const string CtrlV = "\u0016";
 
     private readonly TerminalConnection _connection = new();
+    private bool _connected;
     private TerminalAppearance _appearance = TerminalAppearance.Default;
     private (int Width, int Height)? _cell;
     private double _cellScale;
@@ -32,8 +33,6 @@ public sealed partial class TerminalView : UserControl
     {
         InitializeComponent();
         _connection.InputReceived += OnTerminalInput;
-        Term.Connection = _connection;
-
         // The control shows or hides its native window by its own Visibility only: hidden with a
         // parent, it would still be shown again on top of whatever is visible at the next layout.
         RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => Term.Visibility = Visibility);
@@ -41,6 +40,14 @@ public sealed partial class TerminalView : UserControl
         {
             ApplyAppearance();
             ShowScrollBar();
+
+            // Connected once loaded: the control starts the connection as soon as it is set and
+            // drops output until its native terminal exists, which happens when it is loaded.
+            if (!_connected)
+            {
+                Term.Connection = _connection;
+                _connected = true;
+            }
         };
     }
 
