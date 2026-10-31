@@ -17,15 +17,6 @@ public partial class App : Application
     {
         InitializeComponent();
         Services = ConfigureServices();
-
-        // TEMPORARY: crash diagnostics.
-        if (Environment.GetEnvironmentVariable("COMRADE_DIAG") is { } diag)
-        {
-            UnhandledException += (_, e) => System.IO.File.AppendAllText(diag, $"UI {e.Exception}{Environment.NewLine}");
-            AppDomain.CurrentDomain.UnhandledException += (_, e) => System.IO.File.AppendAllText(diag, $"DOMAIN {e.ExceptionObject}{Environment.NewLine}");
-            AppDomain.CurrentDomain.FirstChanceException += (_, e) => System.IO.File.AppendAllText(diag, $"FIRST {e.Exception.GetType().Name}: {e.Exception.Message}{Environment.NewLine}{Environment.StackTrace}{Environment.NewLine}");
-            System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) => System.IO.File.AppendAllText(diag, $"TASK {e.Exception}{Environment.NewLine}");
-        }
     }
 
     public static new App Current => (App)Application.Current;
