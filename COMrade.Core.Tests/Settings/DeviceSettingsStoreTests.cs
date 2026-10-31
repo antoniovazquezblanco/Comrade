@@ -89,4 +89,66 @@ public sealed class DeviceSettingsStoreTests : IDisposable
         store.Save(Ch340, DeviceSettings.Default, Now);
         Assert.NotNull(new DeviceSettingsStore(FilePath).Find(Ch340));
     }
+
+    [Fact]
+    public void The_device_name_and_port_are_remembered_for_the_settings_page()
+    {
+        var store = new DeviceSettingsStore(FilePath);
+        store.Save(Ch340, DeviceSettings.Default, Now, "USB-SERIAL CH340");
+        store.Save(Ch340, DeviceSettings.Default, Now.AddHours(1));
+
+        var remembered = new DeviceSettingsStore(FilePath).Find(Ch340);
+        Assert.Equal("USB-SERIAL CH340", remembered?.Description);
+        Assert.Equal("COM5", remembered?.PortName);
+    }
+
+    [Fact]
+    public void Devices_are_listed_most_recently_used_first()
+    {
+        var store = new DeviceSettingsStore(FilePath);
+        store.Save(Ch340, DeviceSettings.Default, Now);
+        store.Save(Ftdi, DeviceSettings.Default, Now.AddHours(1));
+
+        Assert.Equal([Ftdi.Key, Ch340.Key], store.Devices.Select(device => device.Key));
+    }
+
+    [Fact]
+    public void A_forgotten_device_gets_the_defaults_again()
+    {
+        var store = new DeviceSettingsStore(FilePath);
+        store.Save(Ch340, DeviceSettings.Default, Now);
+        store.Save(Ftdi, DeviceSettings.Default, Now);
+
+        store.Forget(Ch340.Key);
+
+        Assert.Null(new DeviceSettingsStore(FilePath).Find(Ch340));
+        Assert.NotNull(new DeviceSettingsStore(FilePath).Find(Ftdi));
+    }
+
+    [Fact]
+    public void Forget_all_clears_every_device()
+    {
+        var store = new DeviceSettingsStore(FilePath);
+        store.Save(Ch340, DeviceSettings.Default, Now);
+        store.Save(Ftdi, DeviceSettings.Default, Now);
+
+        store.ForgetAll();
+
+        Assert.Empty(new DeviceSettingsStore(FilePath).Devices);
+    }
+
+    [Fact]
+    public void Changes_are_announced()
+    {
+        var store = new DeviceSettingsStore(FilePath);
+        var changes = 0;
+        store.Changed += (_, _) => changes++;
+
+        store.Save(Ch340, DeviceSettings.Default, Now);
+        store.Forget(Ch340.Key);
+        store.Forget(Ch340.Key);
+        store.ForgetAll();
+
+        Assert.Equal(2, changes);
+    }
 }

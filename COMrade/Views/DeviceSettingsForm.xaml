@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="COMrade.Views.DeviceSettingsForm"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:COMrade.ViewModels">
+
+    <!-- A device's settings: in a tab's port settings and as the new-device defaults in the settings page. -->
+    <StackPanel Spacing="12">
+        <Grid ColumnSpacing="12" RowSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- SelectedItem too: an editable ComboBox does not show its initial Text. -->
+            <ComboBox
+                HorizontalAlignment="Stretch"
+                Header="Speed (baud)"
+                IsEditable="True"
+                ItemsSource="{x:Bind vm:DeviceSettingsEditor.BaudRateOptions}"
+                SelectedItem="{x:Bind Editor.BaudRateText, Mode=OneWay}"
+                Text="{x:Bind Editor.BaudRateText, Mode=TwoWay}" />
+            <ComboBox
+                Grid.Column="1"
+                HorizontalAlignment="Stretch"
+                Header="Data bits"
+                ItemsSource="{x:Bind vm:DeviceSettingsEditor.DataBitsOptions}"
+                SelectedIndex="{x:Bind Editor.DataBitsIndex, Mode=TwoWay}" />
+            <ComboBox
+                Grid.Column="2"
+                HorizontalAlignment="Stretch"
+                Header="Parity"
+                ItemsSource="{x:Bind vm:DeviceSettingsEditor.ParityOptions}"
+                SelectedIndex="{x:Bind Editor.ParityIndex, Mode=TwoWay}" />
+            <ComboBox
+                Grid.Row="1"
+                HorizontalAlignment="Stretch"
+                Header="Stop bits"
+                ItemsSource="{x:Bind vm:DeviceSettingsEditor.StopBitsOptions}"
+                SelectedIndex="{x:Bind Editor.StopBitsIndex, Mode=TwoWay}" />
+            <ComboBox
+                Grid.Row="1"
+                Grid.Column="1"
+                HorizontalAlignment="Stretch"
+                Header="Flow control"
+                ItemsSource="{x:Bind vm:DeviceSettingsEditor.FlowControlOptions}"
+                SelectedIndex="{x:Bind Editor.FlowControlIndex, Mode=TwoWay}" />
+            <ComboBox
+                Grid.Row="1"
+                Grid.Column="2"
+                HorizontalAlignment="Stretch"
+                Header="Enter sends"
+                ItemsSource="{x:Bind vm:DeviceSettingsEditor.SendLineEndingOptions}"
+                SelectedIndex="{x:Bind Editor.SendLineEndingIndex, Mode=TwoWay}" />
+        </Grid>
+
+        <StackPanel>
+            <CheckBox Content="Local echo (show what I type)" IsChecked="{x:Bind Editor.LocalEcho, Mode=TwoWay}" />
+            <CheckBox Content="New line on received LF" IsChecked="{x:Bind Editor.NewLineOnLf, Mode=TwoWay}" />
+            <CheckBox Content="New line on received CR" IsChecked="{x:Bind Editor.NewLineOnCr, Mode=TwoWay}" />
+            <CheckBox Content="Reopen automatically when the device comes back" IsChecked="{x:Bind Editor.ReopenAutomatically, Mode=TwoWay}" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>
