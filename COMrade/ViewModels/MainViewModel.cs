@@ -54,7 +54,7 @@ public sealed partial class MainViewModel : ObservableObject
         if (tab is null)
         {
             var settings = _devices.Find(port.Identity)?.Settings ?? _settings.Current.NewDevice;
-            tab = new DeviceTabViewModel(_sessions.GetOrCreate(port, settings.Serial), settings, _devices);
+            tab = new DeviceTabViewModel(_sessions.GetOrCreate(port, settings.Serial), settings, _devices, _settings);
             Attach(tab, Tabs.Count);
         }
 

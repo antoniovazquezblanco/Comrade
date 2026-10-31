@@ -140,6 +140,48 @@
                 <Border Style="{StaticResource SectionStyle}">
                     <StackPanel Spacing="12">
                         <StackPanel Spacing="2">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Logging" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Log in a tab saves what its terminal shows to a text file, one file each time logging starts."
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox
+                                Header="Folder"
+                                PlaceholderText="{x:Bind ViewModel.DefaultLogFolder}"
+                                Text="{x:Bind ViewModel.LogFolder, Mode=TwoWay}" />
+                            <Button
+                                Grid.Column="1"
+                                VerticalAlignment="Bottom"
+                                Click="OnBrowseLogFolderClick"
+                                Content="Browse" />
+                            <Button
+                                Grid.Column="2"
+                                VerticalAlignment="Bottom"
+                                Command="{x:Bind ViewModel.OpenLogFolderCommand}"
+                                Content="Open" />
+                        </Grid>
+                        <StackPanel>
+                            <CheckBox Content="Start each line with the time" IsChecked="{x:Bind ViewModel.LogTimestamps, Mode=TwoWay}" />
+                            <CheckBox Content="Keep colour and cursor codes" IsChecked="{x:Bind ViewModel.LogKeepColourCodes, Mode=TwoWay}" />
+                            <CheckBox
+                                Content="Ask where to save each log"
+                                IsChecked="{x:Bind ViewModel.LogAskWhereToSave, Mode=TwoWay}"
+                                ToolTipService.ToolTip="Logs started when a port opens still go to the folder above" />
+                            <CheckBox Content="Start logging when a port opens" IsChecked="{x:Bind ViewModel.LogWhenPortOpens, Mode=TwoWay}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource SectionStyle}">
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="2">
                             <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="New devices" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"

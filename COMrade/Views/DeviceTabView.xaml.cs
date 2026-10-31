@@ -1,11 +1,14 @@
 using System;
 using System.ComponentModel;
+using System.IO;
+using System.Threading.Tasks;
 using COMrade.Core.Sessions;
 using COMrade.Core.Settings;
 using COMrade.Terminal;
 using COMrade.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.Windows.Storage.Pickers;
 
 namespace COMrade.Views;
 
@@ -19,6 +22,7 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
     public DeviceTabView(DeviceTabViewModel viewModel, AppSettingsStore settings)
     {
         ViewModel = viewModel;
+        viewModel.PickLogFile = PickLogFileAsync;
         _settings = settings;
         InitializeComponent();
 
@@ -49,6 +53,7 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
 
     public void Dispose()
     {
+        ViewModel.PickLogFile = null;
         _settings.Changed -= OnSettingsChanged;
         ViewModel.TerminalSettingsChanged -= OnTerminalSettingsChanged;
         ViewModel.TerminalMessage -= OnTerminalMessage;
@@ -73,5 +78,21 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         if (isOpen && !_wasOpen && Visibility is Visibility.Visible)
             Terminal.FocusTerminal();
         _wasOpen = isOpen;
+    }
+
+    // The Save dialog needs the window it belongs to. It starts in the log folder the first time
+    // and then where the last log was saved.
+    private async Task<string?> PickLogFileAsync(string fileName, string folder)
+    {
+        var picker = new FileSavePicker(XamlRoot.ContentIslandEnvironment.AppWindowId)
+        {
+            SuggestedFileName = Path.GetFileNameWithoutExtension(fileName),
+            DefaultFileExtension = ".log",
+            SettingsIdentifier = "SessionLog",
+        };
+        if (Directory.Exists(folder))
+            picker.SuggestedStartFolder = folder;
+        picker.FileTypeChoices.Add("Log or text file", [".log", ".txt"]);
+        return (await picker.PickSaveFileAsync())?.Path;
     }
 }
