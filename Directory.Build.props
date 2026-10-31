@@ -7,6 +7,12 @@
     <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
   </PropertyGroup>
 
+  <!-- Lets the Windows-only projects restore on Linux, as GitHub's automatic dependency
+       submission does on an Ubuntu runner (NETSDK1100 otherwise). No effect on Windows. -->
+  <PropertyGroup>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="all" />
   </ItemGroup>
