@@ -20,16 +20,13 @@ public static class DisplayText
     };
 
     /// <summary>What kind of port this is, for example "USB 1A86:7523", "Bluetooth" or "Built-in".</summary>
-    public static string Kind(SerialPortInfo port)
+    public static string Kind(SerialPortInfo port) => port.Kind switch
     {
-        if (port.Identity is { VendorId: { } vendor, ProductId: { } product })
-            return $"USB {vendor:X4}:{product:X4}";
-        if (port.DeviceId.StartsWith(@"BTHENUM\", StringComparison.OrdinalIgnoreCase))
-            return "Bluetooth";
-        if (port.DeviceId.StartsWith(@"ACPI\", StringComparison.OrdinalIgnoreCase))
-            return "Built-in";
-        return "Virtual";
-    }
+        PortKind.Usb => $"USB {port.Identity.VendorId:X4}:{port.Identity.ProductId:X4}",
+        PortKind.Bluetooth => "Bluetooth",
+        PortKind.BuiltIn => "Built-in",
+        _ => "Virtual",
+    };
 
     public static string Bytes(long count) => count switch
     {

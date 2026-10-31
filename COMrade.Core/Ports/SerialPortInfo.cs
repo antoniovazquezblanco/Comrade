@@ -15,6 +15,21 @@ public sealed record SerialPortInfo(
 {
     private const string ComPrefix = "COM";
 
+    /// <summary>USB, built-in, virtual or Bluetooth; decides where the port is listed.</summary>
+    public PortKind Kind
+    {
+        get
+        {
+            if (Identity.IsUsb)
+                return PortKind.Usb;
+            if (DeviceId.StartsWith(@"BTHENUM\", StringComparison.OrdinalIgnoreCase))
+                return PortKind.Bluetooth;
+            if (DeviceId.StartsWith(@"ACPI\", StringComparison.OrdinalIgnoreCase))
+                return PortKind.BuiltIn;
+            return PortKind.Virtual;
+        }
+    }
+
     /// <summary>Number of the COM port (5 for COM5), used to sort ports naturally.</summary>
     public int PortNumber => int.Parse(PortName.AsSpan(ComPrefix.Length), CultureInfo.InvariantCulture);
 

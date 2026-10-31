@@ -41,4 +41,27 @@ public class SerialPortInfoTests
     {
         Assert.Null(SerialPortInfo.FromDevice(new PortDevice(@"ACPI\PNP0401\1", portName, "Printer Port")));
     }
+
+    [Theory]
+    [InlineData(@"USB\VID_1A86&PID_7523\5&2F3C1B2&0&3", PortKind.Usb)]
+    [InlineData(@"FTDIBUS\VID_0403+PID_6001+A50285BIA\0000", PortKind.Usb)]
+    [InlineData(@"BTHENUM\{00001101-0000-1000-8000-00805F9B34FB}_LOCALMFG&0002\7&2EDB73B5&0&24B231F4C893_C00000000", PortKind.Bluetooth)]
+    [InlineData(@"ACPI\PNP0501\1", PortKind.BuiltIn)]
+    [InlineData(@"COM0COM\PORT\CNCA0", PortKind.Virtual)]
+    [InlineData(@"ROOT\PORTS\0000", PortKind.Virtual)]
+    public void Kind_is_recognised_from_the_device(string deviceId, PortKind expected)
+    {
+        Assert.Equal(expected, SerialPortInfo.FromDevice(new PortDevice(deviceId, "COM7", "Port (COM7)"))?.Kind);
+    }
+
+    [Fact]
+    public void Composite_usb_boards_are_usb()
+    {
+        // ESP32-C3 native USB: the port is one interface of a composite device.
+        var port = SerialPortInfo.FromDevice(new PortDevice(
+            @"USB\VID_303A&PID_1001&MI_00\7&2DE0FCAF&0&0000", "COM10", "USB Serial Device (COM10)",
+            ParentDeviceId: @"USB\VID_303A&PID_1001\58:CF:79:A3:5E:1C"));
+
+        Assert.Equal(PortKind.Usb, port?.Kind);
+    }
 }
