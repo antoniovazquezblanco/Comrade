@@ -68,6 +68,9 @@ public sealed partial class DeviceTabViewModel : TabViewModel
 
     public DeviceSettings Settings => Editor.Settings;
 
+    /// <summary>What the tab's terminal has shown; replayed when the tab moves to another window.</summary>
+    public TerminalHistory History { get; } = new();
+
     // Tab, toolbar and settings card.
 
     /// <summary>The name the user gave the tab, or the port and device, e.g. "COM5 · USB-SERIAL CH340".</summary>

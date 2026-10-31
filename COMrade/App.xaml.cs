@@ -4,6 +4,7 @@ using COMrade.Core.Serial;
 using COMrade.Core.Sessions;
 using COMrade.Core.Settings;
 using COMrade.ViewModels;
+using COMrade.Windowing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 
@@ -11,8 +12,6 @@ namespace COMrade;
 
 public partial class App : Application
 {
-    private Window? _window;
-
     public App()
     {
         InitializeComponent();
@@ -25,8 +24,7 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _window = Services.GetRequiredService<MainWindow>();
-        _window.Activate();
+        Services.GetRequiredService<WindowManager>().Start();
     }
 
     private static ServiceProvider ConfigureServices()
@@ -42,8 +40,9 @@ public partial class App : Application
 
         services.AddSingleton<PortListViewModel>();
 
-        services.AddSingleton<MainViewModel>();
-        services.AddSingleton<MainWindow>();
+        // One view model per window, created by the window manager.
+        services.AddTransient<MainViewModel>();
+        services.AddSingleton<WindowManager>();
 
         return services.BuildServiceProvider();
     }

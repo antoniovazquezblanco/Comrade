@@ -23,8 +23,15 @@
             x:Name="Tabs"
             VerticalAlignment="Top"
             AddTabButtonClick="OnAddTabButtonClick"
+            AllowDrop="True"
             Background="Transparent"
+            CanDragTabs="True"
             CanReorderTabs="True"
+            TabDragCompleted="OnTabDragCompleted"
+            TabDragStarting="OnTabDragStarting"
+            TabDroppedOutside="OnTabDroppedOutside"
+            TabStripDragOver="OnTabStripDragOver"
+            TabStripDrop="OnTabStripDrop"
             SelectedItem="{x:Bind ViewModel.SelectedTab, Mode=TwoWay}"
             TabCloseRequested="OnTabCloseRequested"
             TabItemsSource="{x:Bind ViewModel.Tabs}"
@@ -99,6 +106,14 @@
                                             Command="{x:Bind ResetNameCommand}"
                                             IsEnabled="{x:Bind IsNamed, Mode=OneWay}"
                                             Text="Reset name" />
+                                        <MenuFlyoutItem
+                                            Click="OnMoveToNewWindowClick"
+                                            Tag="{x:Bind}"
+                                            Text="Move tab to new window">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon Glyph="&#xE8A7;" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
                                         <MenuFlyoutSeparator />
                                         <MenuFlyoutItem
                                             Click="OnCloseTabClick"
