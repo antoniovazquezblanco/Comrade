@@ -48,23 +48,43 @@ public class DeviceIdentityTests
     }
 
     [Fact]
-    public void Same_model_with_the_same_placeholder_serial_is_a_placeholder_match()
+    public void Same_model_with_the_same_placeholder_serial_could_be_one_device()
     {
         var before = new DeviceIdentity("COM19", 0x10C4, 0xEA60, Location: "USB(1)", PlaceholderSerial: "0001");
         var after = new DeviceIdentity("COM19", 0x10C4, 0xEA60, Location: "USB(4)", PlaceholderSerial: "0001");
 
         Assert.False(before.IsSameDeviceAs(after));
-        Assert.True(before.IsPlaceholderMatch(after));
+        Assert.True(before.IsSameModelWithoutSerial(after));
     }
 
     [Fact]
-    public void Placeholder_match_needs_the_same_model_and_placeholder()
+    public void Same_model_without_any_serial_could_be_one_device()
+    {
+        var before = new DeviceIdentity("COM24", 0x1A86, 0x7523, Location: "USB(6)");
+        var after = new DeviceIdentity("COM13", 0x1A86, 0x7523, Location: "USB(2)");
+
+        Assert.False(before.IsSameDeviceAs(after));
+        Assert.True(before.IsSameModelWithoutSerial(after));
+    }
+
+    [Fact]
+    public void Adapters_with_their_own_serial_are_never_taken_for_another()
+    {
+        var ftdi = new DeviceIdentity("COM3", 0x0403, 0x6001, "A50285BIA", "USB(1)");
+
+        Assert.False(ftdi.IsSameModelWithoutSerial(ftdi with { SerialNumber = "A50285BJB", Location = "USB(2)" }));
+        Assert.False(ftdi.IsSameModelWithoutSerial(ftdi with { SerialNumber = null }));
+        Assert.False(new DeviceIdentity("COM1").IsSameModelWithoutSerial(new DeviceIdentity("COM2")));
+    }
+
+    [Fact]
+    public void Moved_socket_match_needs_the_same_model_and_placeholder()
     {
         var cp210x = new DeviceIdentity("COM19", 0x10C4, 0xEA60, Location: "USB(1)", PlaceholderSerial: "0001");
 
-        Assert.False(cp210x.IsPlaceholderMatch(cp210x with { ProductId = 0xEA70 }));
-        Assert.False(cp210x.IsPlaceholderMatch(cp210x with { PlaceholderSerial = "0000" }));
-        Assert.False(cp210x.IsPlaceholderMatch(cp210x with { PlaceholderSerial = null }));
+        Assert.False(cp210x.IsSameModelWithoutSerial(cp210x with { ProductId = 0xEA70 }));
+        Assert.False(cp210x.IsSameModelWithoutSerial(cp210x with { PlaceholderSerial = "0000" }));
+        Assert.False(cp210x.IsSameModelWithoutSerial(cp210x with { PlaceholderSerial = null }));
     }
 
     [Fact]

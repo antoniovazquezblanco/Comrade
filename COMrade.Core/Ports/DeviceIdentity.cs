@@ -10,7 +10,7 @@ namespace COMrade.Core.Ports;
 /// </remarks>
 /// <param name="PlaceholderSerial">
 /// Serial number shared by every unit of the adapter (e.g. CP210x "0001"); not used in <see cref="Key"/>,
-/// only to recognise the adapter after it moves to another USB socket.
+/// only to tell adapter models apart in <see cref="IsSameModelWithoutSerial"/>.
 /// </param>
 public sealed record DeviceIdentity(
     string PortName,
@@ -42,9 +42,15 @@ public sealed record DeviceIdentity(
     public bool IsSameDeviceAs(DeviceIdentity other) =>
         string.Equals(Key, other.Key, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>True when both are the same adapter model reporting the same placeholder serial number.</summary>
-    public bool IsPlaceholderMatch(DeviceIdentity other) =>
-        PlaceholderSerial is not null
+    /// <summary>
+    /// True when both are the same USB adapter model and neither has a serial number of its own (none
+    /// at all, like the CH340, or the same placeholder shared by every unit): they could be one device
+    /// that moved to another USB socket.
+    /// </summary>
+    public bool IsSameModelWithoutSerial(DeviceIdentity other) =>
+        IsUsb
+        && SerialNumber is null
+        && other.SerialNumber is null
         && VendorId == other.VendorId
         && ProductId == other.ProductId
         && string.Equals(PlaceholderSerial, other.PlaceholderSerial, StringComparison.OrdinalIgnoreCase);

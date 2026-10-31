@@ -309,8 +309,9 @@ public sealed class PortSession : IAsyncDisposable
         QueueDeviceEvent(() => DeviceArrivedAsync(port));
     }
 
-    // Exact identity, or the placeholder-serial fallback: an adapter whose only serial number is
-    // a placeholder is accepted after moving sockets when it is the only such adapter present.
+    // Exact identity, or the moved-socket fallback: an adapter without a serial number of its own is
+    // known only by its USB socket, so after it disappears the only adapter of the same model
+    // without a serial number is taken to be it, plugged into another socket.
     private bool IsThisDevice(SerialPortInfo port)
     {
         var identity = Port.Identity;
@@ -318,8 +319,8 @@ public sealed class PortSession : IAsyncDisposable
             return true;
 
         return !_isDevicePresent
-            && identity.IsPlaceholderMatch(port.Identity)
-            && _ports.Ports.Count(present => identity.IsPlaceholderMatch(present.Identity)) == 1;
+            && identity.IsSameModelWithoutSerial(port.Identity)
+            && _ports.Ports.Count(present => identity.IsSameModelWithoutSerial(present.Identity)) == 1;
     }
 
     private void QueueDeviceEvent(Func<Task> handle)

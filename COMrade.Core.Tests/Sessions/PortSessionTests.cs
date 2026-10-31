@@ -399,6 +399,31 @@ public class PortSessionTests : IAsyncDisposable
         Assert.Equal(PortSessionState.Waiting, session.State);
     }
 
+    [Fact]
+    public async Task Adapter_without_serial_moved_to_another_socket_is_reopened()
+    {
+        await _session.OpenAsync();
+
+        // A CH340 has no serial number: in another socket it gets another instance ID and COM number.
+        await UnplugAsync(Ch340Id);
+        await PlugAsync(new PortDevice(@"USB\VID_1A86&PID_7523\5&2F3C1B2&0&1", "COM13", "USB-SERIAL CH340 (COM13)", LocationPath: "USB(1)"));
+
+        Assert.Equal(PortSessionState.Open, _session.State);
+        Assert.Equal("COM13", _session.Port.PortName);
+    }
+
+    [Fact]
+    public async Task Adapter_without_serial_is_not_guessed_while_another_of_its_model_is_present()
+    {
+        _ports.AddOrUpdate(new PortDevice(@"USB\VID_1A86&PID_7523\5&2F3C1B2&0&2", "COM8", "USB-SERIAL CH340 (COM8)", LocationPath: "USB(2)"));
+        await _session.OpenAsync();
+
+        await UnplugAsync(Ch340Id);
+        await PlugAsync(new PortDevice(@"USB\VID_1A86&PID_7523\5&2F3C1B2&0&1", "COM13", "USB-SERIAL CH340 (COM13)", LocationPath: "USB(1)"));
+
+        Assert.Equal(PortSessionState.Waiting, _session.State);
+    }
+
     private PortSession CreateSession(string deviceId) =>
         new(_ports.Ports.Single(port => port.DeviceId == deviceId), SerialSettings.Default, _ports, _driver.OpenAsync, _time);
 
