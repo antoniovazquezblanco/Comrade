@@ -17,7 +17,7 @@ public sealed class PortList
 
     public event EventHandler? EnumerationCompleted;
 
-    /// <summary>Current ports, sorted by COM number.</summary>
+    /// <summary>Current ports: USB first and Bluetooth last (<see cref="PortKind"/>), then by COM number.</summary>
     public IReadOnlyList<SerialPortInfo> Ports
     {
         get
@@ -25,7 +25,8 @@ public sealed class PortList
             lock (_lock)
             {
                 return _ports.Values
-                    .OrderBy(port => port.PortNumber)
+                    .OrderBy(port => port.Kind)
+                    .ThenBy(port => port.PortNumber)
                     .ThenBy(port => port.DeviceId, StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }

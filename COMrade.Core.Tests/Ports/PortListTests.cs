@@ -85,13 +85,26 @@ public class PortListTests
     }
 
     [Fact]
-    public void Ports_are_sorted_by_com_number()
+    public void Ports_of_one_kind_are_sorted_by_com_number()
     {
         _list.AddOrUpdate(new PortDevice(@"ACPI\PNP0501\10", "COM10", "Communications Port (COM10)"));
+        _list.AddOrUpdate(new PortDevice(@"ACPI\PNP0501\9", "COM9", "Communications Port (COM9)"));
         _list.AddOrUpdate(new PortDevice(@"ACPI\PNP0501\2", "COM2", "Communications Port (COM2)"));
-        _list.AddOrUpdate(Ch340("COM3"));
 
-        Assert.Equal(["COM2", "COM3", "COM10"], _list.Ports.Select(port => port.PortName));
+        Assert.Equal(["COM2", "COM9", "COM10"], _list.Ports.Select(port => port.PortName));
+    }
+
+    [Fact]
+    public void Usb_ports_come_first_and_bluetooth_ports_last()
+    {
+        // As on the user's machine: Bluetooth ports with low numbers, USB adapters with high ones.
+        _list.AddOrUpdate(new PortDevice(@"BTHENUM\{00001101-0000-1000-8000-00805F9B34FB}_LOCALMFG&0000\7&2EDB73B5&0&000000000000_00000000", "COM5", "Standard Serial over Bluetooth link (COM5)"));
+        _list.AddOrUpdate(new PortDevice(@"COM0COM\PORT\CNCA0", "COM3", "com0com - serial port emulator (COM3)"));
+        _list.AddOrUpdate(new PortDevice(@"USB\VID_10C4&PID_EA60\0001", "COM19", "Silicon Labs CP210x USB to UART Bridge (COM19)"));
+        _list.AddOrUpdate(new PortDevice(@"ACPI\PNP0501\1", "COM1", "Communications Port (COM1)"));
+        _list.AddOrUpdate(Ch340("COM16"));
+
+        Assert.Equal(["COM16", "COM19", "COM1", "COM3", "COM5"], _list.Ports.Select(port => port.PortName));
     }
 
     [Fact]
