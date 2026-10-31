@@ -9,6 +9,9 @@
     <File Path="nuget.config" />
     <File Path=".gitignore" />
   </Folder>
+  <Folder Name="/docs/">
+    <File Path="docs/development.md" />
+  </Folder>
   <Folder Name="/.github/">
     <File Path=".github/dependabot.yml" />
   </Folder>
