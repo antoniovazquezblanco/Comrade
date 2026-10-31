@@ -68,7 +68,7 @@ public class TerminalHistoryTests
         {
             for (var i = 0; i < 2000; i++)
                 history.Write([(byte)'x']);
-        });
+        }, TestContext.Current.CancellationToken);
 
         var shown = new List<byte[]>();
         history.Attach(chunk =>
