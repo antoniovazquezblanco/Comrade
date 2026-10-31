@@ -7,8 +7,8 @@ public sealed class PortItemViewModel(SerialPortInfo port, string detail, bool i
 {
     public SerialPortInfo Port { get; } = port;
 
-    /// <summary>For example "COM5 · USB-SERIAL CH340".</summary>
-    public string Title { get; } = $"{port.PortName} · {port.Description}";
+    /// <summary>For example "COM5 · USB-SERIAL CH340", or "COM25 · Prolific PL2303HXA" for a refused adapter.</summary>
+    public string Title { get; } = $"{port.PortName} · {(port.IsRefusedByDriver ? DisplayText.RefusedAdapterName(port) : port.Description)}";
 
     /// <summary>For example "Last used · 115200 8N1 · CR" or "Plugged in just now · will use 115200 8N1 · CR".</summary>
     public string Detail { get; } = detail;
@@ -16,8 +16,11 @@ public sealed class PortItemViewModel(SerialPortInfo port, string detail, bool i
     /// <summary>Plugged in while COMrade is running.</summary>
     public bool IsNew { get; } = isNew;
 
-    /// <summary>The device used most recently, offered as the main choice.</summary>
-    public bool IsLastUsed { get; } = isLastUsed;
+    /// <summary>An adapter its driver refuses: offers the driver help instead of Select.</summary>
+    public bool NeedsDriverHelp => Port.IsRefusedByDriver;
 
-    public bool IsNotLastUsed => !IsLastUsed;
+    /// <summary>The device used most recently, offered as the main choice.</summary>
+    public bool ShowMainSelect => isLastUsed && !NeedsDriverHelp;
+
+    public bool ShowSelect => !isLastUsed && !NeedsDriverHelp;
 }

@@ -81,9 +81,11 @@ public sealed partial class PortListViewModel : ObservableObject, IDisposable
         {
             var device = remembered[port.DeviceId];
             var isNew = _arrivedWhileRunning.Contains(port.DeviceId);
-            var detail = device is not null
-                ? $"Last used · {DisplayText.Settings(device.Settings.Serial)}"
-                : $"{(isNew ? "Plugged in just now" : DisplayText.Kind(port))} · will use {DisplayText.Settings(DeviceSettings.Default.Serial)}";
+            var detail = port.IsRefusedByDriver
+                ? "Its driver refuses this adapter · Fix driver shows how to use it"
+                : device is not null
+                    ? $"Last used · {DisplayText.Settings(device.Settings.Serial)}"
+                    : $"{(isNew ? "Plugged in just now" : DisplayText.Kind(port))} · will use {DisplayText.Settings(DeviceSettings.Default.Serial)}";
             Ports.Add(new PortItemViewModel(port, detail, isNew, device is not null && device == lastUsed));
         }
 
