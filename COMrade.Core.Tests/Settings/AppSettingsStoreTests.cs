@@ -57,20 +57,26 @@ public sealed class AppSettingsStoreTests : IDisposable
     [Fact]
     public void Tab_mode_is_remembered()
     {
-        new AppSettingsStore(FilePath).Save(AppSettings.Default with { TabMode = TabMode.Compact });
+        new AppSettingsStore(FilePath).Save(AppSettings.Default with { TabMode = TabMode.Scrolling });
 
+        Assert.Equal(TabMode.Scrolling, new AppSettingsStore(FilePath).Current.TabMode);
+    }
+
+    [Fact]
+    public void Compact_tabs_are_the_default()
+    {
         Assert.Equal(TabMode.Compact, new AppSettingsStore(FilePath).Current.TabMode);
     }
 
     [Fact]
-    public void Settings_saved_before_the_tab_mode_existed_scroll()
+    public void Settings_saved_before_the_tab_mode_existed_get_compact_tabs()
     {
         new AppSettingsStore(FilePath).Save(AppSettings.Default with { NewDevice = DeviceSettings.Default with { ReopenAutomatically = false } });
-        File.WriteAllText(FilePath, File.ReadAllText(FilePath).Replace("\"tabMode\": \"Scrolling\"", "\"unknown\": 0"));
+        File.WriteAllText(FilePath, File.ReadAllText(FilePath).Replace("\"tabMode\": \"Compact\"", "\"unknown\": 0"));
 
         var settings = new AppSettingsStore(FilePath).Current;
 
-        Assert.Equal(TabMode.Scrolling, settings.TabMode);
+        Assert.Equal(TabMode.Compact, settings.TabMode);
         Assert.False(settings.NewDevice.ReopenAutomatically);
     }
 }
