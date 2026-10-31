@@ -222,6 +222,66 @@ public sealed partial class MainWindow : Window
     private async void OnTabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args) =>
         await ViewModel.CloseTabAsync((TabViewModel)args.Item);
 
+    private async void OnCloseTabClick(object sender, RoutedEventArgs e) =>
+        await ViewModel.CloseTabAsync((DeviceTabViewModel)((FrameworkElement)sender).Tag);
+
+    // Renaming: double-click a tab title, or Rename tab in its context menu.
+    private void OnTabDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is DeviceTabViewModel tab)
+            tab.IsRenaming = true;
+    }
+
+    // The rename box takes the focus, with the title selected, when renaming starts. The title under
+    // it stays (invisible) and keeps the tab's size; the box is sized from it and reaches over the
+    // tab's close button, where its own clear button goes. A longer name scrolls inside the box.
+    private void OnRenameBoxLoaded(object sender, RoutedEventArgs e)
+    {
+        var box = (TextBox)sender;
+        var title = (TextBlock)((Panel)box.Parent).Children[0];
+        box.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (_, _) =>
+        {
+            var renaming = box.Visibility is Visibility.Visible;
+            title.Opacity = renaming ? 0 : 1;
+            if (!renaming)
+                return;
+
+            box.Width = title.ActualWidth - box.Margin.Left - box.Margin.Right;
+            box.Text = ((DeviceTabViewModel)box.Tag).Header;
+            box.Focus(FocusState.Programmatic);
+            box.SelectAll();
+        });
+    }
+
+    private void OnRenameKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        var box = (TextBox)sender;
+        var tab = (DeviceTabViewModel)box.Tag;
+        if (e.Key is VirtualKey.Enter)
+            tab.Rename(box.Text);
+        else if (e.Key is VirtualKey.Escape)
+            tab.IsRenaming = false;
+        else
+            return;
+
+        e.Handled = true;
+        FocusSelectedTerminal();
+    }
+
+    private void OnRenameLostFocus(object sender, RoutedEventArgs e)
+    {
+        var box = (TextBox)sender;
+        var tab = (DeviceTabViewModel)box.Tag;
+        if (tab.IsRenaming)
+            tab.Rename(box.Text);
+    }
+
+    private void FocusSelectedTerminal()
+    {
+        if (ViewModel.SelectedTab is { } tab && _views.TryGetValue(tab, out var view) && view is DeviceTabView device)
+            device.FocusTerminal();
+    }
+
     // Each tab's contents are created once and only hidden while another tab is selected.
     // Dragging a tab removes and inserts it again, so views are matched to tabs afterwards.
     private void OnTabsChanged(object? sender, NotifyCollectionChangedEventArgs e) => DispatcherQueue.TryEnqueue(() =>

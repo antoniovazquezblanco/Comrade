@@ -117,7 +117,8 @@ public sealed partial class DeviceSettingsEditor(DeviceSettings settings, Func<D
         set => _ = ChangeAsync(Settings with { ReopenAutomatically = value });
     }
 
-    private async Task ChangeAsync(DeviceSettings changed)
+    /// <summary>Applies a change made elsewhere, such as the tab's name, as the fields do.</summary>
+    public async Task ChangeAsync(DeviceSettings changed)
     {
         if (changed == Settings)
             return;

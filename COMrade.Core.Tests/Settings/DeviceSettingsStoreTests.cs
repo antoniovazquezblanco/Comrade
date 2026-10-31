@@ -151,4 +151,35 @@ public sealed class DeviceSettingsStoreTests : IDisposable
 
         Assert.Equal(2, changes);
     }
+
+    [Fact]
+    public void A_device_keeps_the_name_given_to_its_tab()
+    {
+        new DeviceSettingsStore(FilePath).Save(Ch340, DeviceSettings.Default with { Name = "Router console" }, Now);
+
+        Assert.Equal("Router console", new DeviceSettingsStore(FilePath).Find(Ch340)?.Settings.Name);
+    }
+
+    [Fact]
+    public void Devices_saved_before_names_existed_have_no_name()
+    {
+        Directory.CreateDirectory(_folder);
+        File.WriteAllText(FilePath, $$"""
+            {
+              "{{Ch340.Key}}": {
+                "settings": {
+                  "serial": { "baudRate": 9600, "dataBits": 8, "parity": "None", "stopBits": "One", "flowControl": "None", "sendLineEnding": "Cr" },
+                  "terminal": { "localEcho": false, "newLineOnLf": true, "newLineOnCr": false },
+                  "reopenAutomatically": true
+                },
+                "lastUsed": "2026-10-31T12:00:00+00:00"
+              }
+            }
+            """);
+
+        var remembered = new DeviceSettingsStore(FilePath).Find(Ch340);
+
+        Assert.Equal(9600, remembered?.Settings.Serial.BaudRate);
+        Assert.Null(remembered?.Settings.Name);
+    }
 }

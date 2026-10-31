@@ -89,10 +89,12 @@ public sealed partial class PortListViewModel : ObservableObject, IDisposable
             var isNew = _arrivedWhileRunning.Contains(port.DeviceId);
             var detail = port.IsRefusedByDriver
                 ? "Its driver refuses this adapter · Fix driver shows how to use it"
-                : device is not null
-                    ? $"Last used · {DisplayText.Settings(device.Settings.Serial)}"
-                    : $"{(isNew ? "Plugged in just now" : DisplayText.Kind(port))} · will use {DisplayText.Settings(_settings.Current.NewDevice.Serial)}";
-            Ports.Add(new PortItemViewModel(port, detail, isNew, device is not null && device == lastUsed));
+                : device is null
+                    ? $"{(isNew ? "Plugged in just now" : DisplayText.Kind(port))} · will use {DisplayText.Settings(_settings.Current.NewDevice.Serial)}"
+                    : device.Settings.Name is null
+                        ? $"Last used · {DisplayText.Settings(device.Settings.Serial)}"
+                        : $"{port.Description} · last used {DisplayText.Settings(device.Settings.Serial)}";
+            Ports.Add(new PortItemViewModel(port, device?.Settings.Name, detail, isNew, device is not null && device == lastUsed));
         }
 
         OnPropertyChanged(nameof(HasNoPorts));

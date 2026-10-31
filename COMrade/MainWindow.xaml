@@ -83,7 +83,33 @@
                 <views:TabTemplateSelector>
                     <views:TabTemplateSelector.Device>
                         <DataTemplate x:DataType="vm:DeviceTabViewModel">
-                            <TabViewItem ToolTipService.ToolTip="{x:Bind Header, Mode=OneWay}">
+                            <TabViewItem
+                                AutomationProperties.Name="{x:Bind Header, Mode=OneWay}"
+                                DoubleTapped="OnTabDoubleTapped"
+                                ToolTipService.ToolTip="{x:Bind ToolTip, Mode=OneWay}">
+                                <TabViewItem.ContextFlyout>
+                                    <!-- Windowed: it drops over the terminal, a native window. -->
+                                    <MenuFlyout ShouldConstrainToRootBounds="False">
+                                        <MenuFlyoutItem Command="{x:Bind StartRenameCommand}" Text="Rename tab">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon Glyph="&#xE8AC;" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem
+                                            Command="{x:Bind ResetNameCommand}"
+                                            IsEnabled="{x:Bind IsNamed, Mode=OneWay}"
+                                            Text="Reset name" />
+                                        <MenuFlyoutSeparator />
+                                        <MenuFlyoutItem
+                                            Click="OnCloseTabClick"
+                                            Tag="{x:Bind}"
+                                            Text="Close tab">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon Glyph="&#xE711;" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                    </MenuFlyout>
+                                </TabViewItem.ContextFlyout>
                                 <TabViewItem.Header>
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <Ellipse
@@ -94,7 +120,27 @@
                                                 <SolidColorBrush Color="{x:Bind StatusColor, Mode=OneWay}" />
                                             </Ellipse.Fill>
                                         </Ellipse>
-                                        <TextBlock Text="{x:Bind TabTitle, Mode=OneWay}" />
+                                        <!-- The box lies over the title, which keeps setting the tab's size while
+                                             renaming; the negative margins let it reach around the text and over the
+                                             close button without changing the layout. Enter keeps the name, Esc
+                                             cancels, an empty name restores the default title. -->
+                                        <Grid>
+                                            <TextBlock Text="{x:Bind TabTitle, Mode=OneWay}" />
+                                            <TextBox
+                                                MinWidth="0"
+                                                MinHeight="0"
+                                                Margin="-8,-3,-34,-3"
+                                                Padding="4,2"
+                                                VerticalAlignment="Center"
+                                                FontSize="{ThemeResource TabViewItemHeaderFontSize}"
+                                                KeyDown="OnRenameKeyDown"
+                                                Loaded="OnRenameBoxLoaded"
+                                                LostFocus="OnRenameLostFocus"
+                                                PlaceholderText="{x:Bind PortName, Mode=OneWay}"
+                                                Tag="{x:Bind}"
+                                                Text="{x:Bind Header, Mode=OneWay}"
+                                                Visibility="{x:Bind IsRenaming, Mode=OneWay}" />
+                                        </Grid>
                                     </StackPanel>
                                 </TabViewItem.Header>
                             </TabViewItem>
@@ -102,7 +148,7 @@
                     </views:TabTemplateSelector.Device>
                     <views:TabTemplateSelector.Settings>
                         <DataTemplate x:DataType="vm:SettingsTabViewModel">
-                            <TabViewItem>
+                            <TabViewItem AutomationProperties.Name="{x:Bind Header}">
                                 <TabViewItem.Header>
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <FontIcon FontSize="12" Glyph="&#xE713;" />
