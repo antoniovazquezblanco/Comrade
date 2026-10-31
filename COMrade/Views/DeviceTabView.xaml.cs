@@ -25,6 +25,9 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         viewModel.TerminalMessage += OnTerminalMessage;
         viewModel.ClearRequested += OnClearRequested;
         viewModel.PropertyChanged += OnPropertyChanged;
+
+        // Hidden tabs must hide the terminal itself, see TerminalView.
+        RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => Terminal.Visibility = Visibility);
     }
 
     public DeviceTabViewModel ViewModel { get; }

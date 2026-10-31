@@ -19,6 +19,8 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
     private static readonly int[] DataBitsValues = [8, 7, 6, 5];
     private static readonly LineEnding[] SendLineEndingValues = [Core.Serial.LineEnding.Cr, Core.Serial.LineEnding.Lf, Core.Serial.LineEnding.CrLf];
 
+    private static readonly TimeSpan WaitingBarDelay = TimeSpan.FromSeconds(1);
+
     private static readonly Color Green = Color.FromArgb(0xFF, 0x6C, 0xCB, 0x5F);
     private static readonly Color Amber = Color.FromArgb(0xFF, 0xFC, 0xE1, 0x00);
     private static readonly Color Red = Color.FromArgb(0xFF, 0xFF, 0x99, 0xA4);
@@ -32,6 +34,7 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
     private PortSessionState _state;
     private bool _settingsRejected;
     private DateTimeOffset? _disconnectedAt;
+    private DateTimeOffset? _waitingSince;
     private string? _portNameAtDisconnect;
 
     public DeviceTabViewModel(PortSession session, DeviceSettings settings, DeviceSettingsStore store, TimeProvider? time = null)
@@ -96,7 +99,12 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
 
     public bool CanClose => _state is PortSessionState.Open or PortSessionState.Opening or PortSessionState.Waiting;
 
-    public bool ShowWaitingBar => _state is PortSessionState.Waiting;
+    /// <summary>
+    /// Shown once the device has been gone for a second: a device that resets itself comes back
+    /// sooner, and the bar would only flash and make the terminal jump.
+    /// </summary>
+    public bool ShowWaitingBar =>
+        _state is PortSessionState.Waiting && _waitingSince is { } since && _time.GetUtcNow() - since >= WaitingBarDelay;
 
     public bool ShowErrorBar => _state is PortSessionState.Error;
 
@@ -311,6 +319,11 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
         if (_state is PortSessionState.Closed)
             _disconnectedAt = null;
 
+        if (_state is not PortSessionState.Waiting)
+            _waitingSince = null;
+        else if (previous is not PortSessionState.Waiting)
+            _waitingSince = _time.GetUtcNow();
+
         OnPropertyChanged(string.Empty);
     }
 
@@ -325,6 +338,7 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
     private void RefreshStatus()
     {
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(ShowWaitingBar));
         OnPropertyChanged(nameof(ReceivedText));
         OnPropertyChanged(nameof(SentText));
     }

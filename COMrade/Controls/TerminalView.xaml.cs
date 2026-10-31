@@ -33,6 +33,10 @@ public sealed partial class TerminalView : UserControl
         InitializeComponent();
         _connection.InputReceived += OnTerminalInput;
         Term.Connection = _connection;
+
+        // The control shows or hides its native window by its own Visibility only: hidden with a
+        // parent, it would still be shown again on top of whatever is visible at the next layout.
+        RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => Term.Visibility = Visibility);
         Loaded += (_, _) =>
         {
             ApplyTheme();
