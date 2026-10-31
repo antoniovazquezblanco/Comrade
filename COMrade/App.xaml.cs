@@ -38,6 +38,7 @@ public partial class App : Application
         services.AddSingleton<OpenSerialConnection>(SerialConnection.OpenAsync);
         services.AddSingleton<PortSessions>();
         services.AddSingleton(new DeviceSettingsStore(DeviceSettingsStore.DefaultPath));
+        services.AddSingleton(new AppSettingsStore(AppSettingsStore.DefaultPath));
 
         services.AddSingleton<PortListViewModel>();
 

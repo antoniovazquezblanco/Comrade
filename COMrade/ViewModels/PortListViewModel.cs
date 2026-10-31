@@ -14,20 +14,25 @@ public sealed partial class PortListViewModel : ObservableObject, IDisposable
 {
     private readonly PortList _ports;
     private readonly DeviceSettingsStore _store;
+    private readonly AppSettingsStore _settings;
     private readonly DispatcherQueue _ui = DispatcherQueue.GetForCurrentThread();
     private readonly HashSet<string> _arrivedWhileRunning = new(StringComparer.OrdinalIgnoreCase);
     private bool _enumerated;
     private bool _disposed;
 
-    public PortListViewModel(PortList ports, DeviceSettingsStore store)
+    public PortListViewModel(PortList ports, DeviceSettingsStore store, AppSettingsStore settings)
     {
         _ports = ports;
         _store = store;
+        _settings = settings;
 
         // Port list events arrive on the watcher thread; the list is rebuilt on the UI thread.
         _ports.PortArrived += OnPortArrived;
         _ports.PortRemoved += OnPortRemoved;
         _ports.EnumerationCompleted += OnEnumerationCompleted;
+        // "Last used" and "will use" details follow the device and new-device settings.
+        _store.Changed += OnSettingsChanged;
+        _settings.Changed += OnSettingsChanged;
         Rebuild();
     }
 
@@ -40,9 +45,6 @@ public sealed partial class PortListViewModel : ObservableObject, IDisposable
         ? "No serial ports found · plug in an adapter and it will appear here"
         : "Looking for serial ports…";
 
-    /// <summary>Refreshes the "last used" details after a device's settings were saved.</summary>
-    public void Refresh() => Rebuild();
-
     /// <summary>Stops updating the list; updates already queued are dropped.</summary>
     public void Dispose()
     {
@@ -50,7 +52,11 @@ public sealed partial class PortListViewModel : ObservableObject, IDisposable
         _ports.PortArrived -= OnPortArrived;
         _ports.PortRemoved -= OnPortRemoved;
         _ports.EnumerationCompleted -= OnEnumerationCompleted;
+        _store.Changed -= OnSettingsChanged;
+        _settings.Changed -= OnSettingsChanged;
     }
+
+    private void OnSettingsChanged(object? sender, EventArgs e) => _ui.TryEnqueue(Rebuild);
 
     private void OnPortArrived(object? sender, SerialPortInfo port) => _ui.TryEnqueue(() =>
     {
@@ -85,7 +91,7 @@ public sealed partial class PortListViewModel : ObservableObject, IDisposable
                 ? "Its driver refuses this adapter · Fix driver shows how to use it"
                 : device is not null
                     ? $"Last used · {DisplayText.Settings(device.Settings.Serial)}"
-                    : $"{(isNew ? "Plugged in just now" : DisplayText.Kind(port))} · will use {DisplayText.Settings(DeviceSettings.Default.Serial)}";
+                    : $"{(isNew ? "Plugged in just now" : DisplayText.Kind(port))} · will use {DisplayText.Settings(_settings.Current.NewDevice.Serial)}";
             Ports.Add(new PortItemViewModel(port, detail, isNew, device is not null && device == lastUsed));
         }
 

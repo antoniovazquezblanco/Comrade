@@ -54,27 +54,66 @@
                 </Grid>
             </TabView.TabStripHeader>
             <TabView.TabStripFooter>
-                <Grid x:Name="DragRegion" Background="Transparent" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <!-- Same size and place as the + button: at the bottom of the strip. -->
+                    <Button
+                        Width="32"
+                        Height="24"
+                        Margin="0,0,0,2"
+                        Padding="0"
+                        VerticalAlignment="Bottom"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        AutomationProperties.Name="Settings"
+                        Click="OnSettingsClick"
+                        ToolTipService.ToolTip="Settings (Ctrl+,)">
+                        <FontIcon FontSize="12" Glyph="&#xE713;" />
+                    </Button>
+                    <Grid
+                        x:Name="DragRegion"
+                        Grid.Column="1"
+                        Background="Transparent" />
+                </Grid>
             </TabView.TabStripFooter>
-            <TabView.TabItemTemplate>
-                <DataTemplate x:DataType="vm:DeviceTabViewModel">
-                    <TabViewItem ToolTipService.ToolTip="{x:Bind Header, Mode=OneWay}">
-                        <TabViewItem.Header>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Ellipse
-                                    Width="8"
-                                    Height="8"
-                                    VerticalAlignment="Center">
-                                    <Ellipse.Fill>
-                                        <SolidColorBrush Color="{x:Bind StatusColor, Mode=OneWay}" />
-                                    </Ellipse.Fill>
-                                </Ellipse>
-                                <TextBlock Text="{x:Bind Header, Mode=OneWay}" />
-                            </StackPanel>
-                        </TabViewItem.Header>
-                    </TabViewItem>
-                </DataTemplate>
-            </TabView.TabItemTemplate>
+            <TabView.TabItemTemplateSelector>
+                <views:TabTemplateSelector>
+                    <views:TabTemplateSelector.Device>
+                        <DataTemplate x:DataType="vm:DeviceTabViewModel">
+                            <TabViewItem ToolTipService.ToolTip="{x:Bind Header, Mode=OneWay}">
+                                <TabViewItem.Header>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Ellipse
+                                            Width="8"
+                                            Height="8"
+                                            VerticalAlignment="Center">
+                                            <Ellipse.Fill>
+                                                <SolidColorBrush Color="{x:Bind StatusColor, Mode=OneWay}" />
+                                            </Ellipse.Fill>
+                                        </Ellipse>
+                                        <TextBlock Text="{x:Bind Header, Mode=OneWay}" />
+                                    </StackPanel>
+                                </TabViewItem.Header>
+                            </TabViewItem>
+                        </DataTemplate>
+                    </views:TabTemplateSelector.Device>
+                    <views:TabTemplateSelector.Settings>
+                        <DataTemplate x:DataType="vm:SettingsTabViewModel">
+                            <TabViewItem>
+                                <TabViewItem.Header>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon FontSize="12" Glyph="&#xE713;" />
+                                        <TextBlock Text="{x:Bind Header}" />
+                                    </StackPanel>
+                                </TabViewItem.Header>
+                            </TabViewItem>
+                        </DataTemplate>
+                    </views:TabTemplateSelector.Settings>
+                </views:TabTemplateSelector>
+            </TabView.TabItemTemplateSelector>
         </TabView>
 
         <Grid

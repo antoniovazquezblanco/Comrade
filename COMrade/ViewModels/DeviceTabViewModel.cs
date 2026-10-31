@@ -14,11 +14,8 @@ using Windows.UI;
 namespace COMrade.ViewModels;
 
 /// <summary>One device tab: its port session, settings, bars and status bar.</summary>
-public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
+public sealed partial class DeviceTabViewModel : TabViewModel
 {
-    private static readonly int[] DataBitsValues = [8, 7, 6, 5];
-    private static readonly LineEnding[] SendLineEndingValues = [Core.Serial.LineEnding.Cr, Core.Serial.LineEnding.Lf, Core.Serial.LineEnding.CrLf];
-
     private static readonly TimeSpan WaitingBarDelay = TimeSpan.FromSeconds(1);
 
     private static readonly Color Green = Color.FromArgb(0xFF, 0x6C, 0xCB, 0x5F);
@@ -30,7 +27,6 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
     private readonly DispatcherQueue _ui;
     private readonly TimeProvider _time;
     private readonly DispatcherQueueTimer _clock;
-    private DeviceSettings _settings;
     private PortSessionState _state;
     private bool _settingsRejected;
     private DateTimeOffset? _disconnectedAt;
@@ -40,7 +36,7 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
     public DeviceTabViewModel(PortSession session, DeviceSettings settings, DeviceSettingsStore store, TimeProvider? time = null)
     {
         Session = session;
-        _settings = settings;
+        Editor = new DeviceSettingsEditor(settings, ApplyAsync);
         _store = store;
         _ui = DispatcherQueue.GetForCurrentThread();
         _time = time ?? TimeProvider.System;
@@ -56,19 +52,6 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
         _clock.Start();
     }
 
-    public static IReadOnlyList<string> BaudRateOptions { get; } =
-        ["300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600", "1000000", "2000000"];
-
-    public static IReadOnlyList<string> DataBitsOptions { get; } = ["8", "7", "6", "5"];
-
-    public static IReadOnlyList<string> ParityOptions { get; } = ["None", "Odd", "Even", "Mark", "Space"];
-
-    public static IReadOnlyList<string> StopBitsOptions { get; } = ["1", "1.5", "2"];
-
-    public static IReadOnlyList<string> FlowControlOptions { get; } = ["None", "RTS/CTS", "XON/XOFF"];
-
-    public static IReadOnlyList<string> SendLineEndingOptions { get; } = ["CR", "LF", "CR+LF"];
-
     /// <summary>A line to show in the terminal, such as the reconnect marker. Raised on the UI thread.</summary>
     public event EventHandler<string>? TerminalMessage;
 
@@ -79,11 +62,16 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
 
     public PortSession Session { get; }
 
-    public DeviceSettings Settings => _settings;
+    /// <summary>The port settings of the toolbar's flyout.</summary>
+    public DeviceSettingsEditor Editor { get; }
+
+    public DeviceSettings Settings => Editor.Settings;
 
     // Tab, toolbar and settings card.
 
-    public string Header => $"{PortName} · {Session.Port.Description}";
+    public override string Header => $"{PortName} · {Session.Port.Description}";
+
+    public override string WindowTitle => $"COMrade - {PortName}";
 
     public string PortName => Session.Port.PortName;
 
@@ -91,7 +79,7 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
 
     /// <summary>The port button's settings, for example "115200 · 8N1 · CR"; Open/Close port shows the state.</summary>
     public string ToolbarSummary =>
-        $"{_settings.Serial.BaudRate} · {_settings.Serial.FrameNotation} · {DisplayText.LineEnding(_settings.Serial.SendLineEnding)}";
+        $"{Settings.Serial.BaudRate} · {Settings.Serial.FrameNotation} · {DisplayText.LineEnding(Settings.Serial.SendLineEnding)}";
 
     // What is visible.
 
@@ -164,99 +152,13 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
 
     public string SentText => $"TX {DisplayText.Bytes(Session.BytesSent)}";
 
-    // Settings, in the toolbar's port settings; they apply at once, also while the port is open.
-
-    public string BaudRateText
-    {
-        get => _settings.Serial.BaudRate.ToString(CultureInfo.InvariantCulture);
-        set
-        {
-            if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var baudRate) && baudRate > 0)
-                _ = ApplyAsync(_settings with { Serial = _settings.Serial with { BaudRate = baudRate } });
-        }
-    }
-
-    public int DataBitsIndex
-    {
-        get => Array.IndexOf(DataBitsValues, _settings.Serial.DataBits);
-        set
-        {
-            if (value >= 0)
-                _ = ApplyAsync(_settings with { Serial = _settings.Serial with { DataBits = DataBitsValues[value] } });
-        }
-    }
-
-    public int ParityIndex
-    {
-        get => (int)_settings.Serial.Parity;
-        set
-        {
-            if (value >= 0)
-                _ = ApplyAsync(_settings with { Serial = _settings.Serial with { Parity = (Parity)value } });
-        }
-    }
-
-    public int StopBitsIndex
-    {
-        get => (int)_settings.Serial.StopBits;
-        set
-        {
-            if (value >= 0)
-                _ = ApplyAsync(_settings with { Serial = _settings.Serial with { StopBits = (StopBits)value } });
-        }
-    }
-
-    public int FlowControlIndex
-    {
-        get => (int)_settings.Serial.FlowControl;
-        set
-        {
-            if (value >= 0)
-                _ = ApplyAsync(_settings with { Serial = _settings.Serial with { FlowControl = (FlowControl)value } });
-        }
-    }
-
-    public int SendLineEndingIndex
-    {
-        get => Math.Max(0, Array.IndexOf(SendLineEndingValues, _settings.Serial.SendLineEnding));
-        set
-        {
-            if (value >= 0)
-                _ = ApplyAsync(_settings with { Serial = _settings.Serial with { SendLineEnding = SendLineEndingValues[value] } });
-        }
-    }
-
-    public bool LocalEcho
-    {
-        get => _settings.Terminal.LocalEcho;
-        set => _ = ApplyAsync(_settings with { Terminal = _settings.Terminal with { LocalEcho = value } });
-    }
-
-    public bool NewLineOnLf
-    {
-        get => _settings.Terminal.NewLineOnLf;
-        set => _ = ApplyAsync(_settings with { Terminal = _settings.Terminal with { NewLineOnLf = value } });
-    }
-
-    public bool NewLineOnCr
-    {
-        get => _settings.Terminal.NewLineOnCr;
-        set => _ = ApplyAsync(_settings with { Terminal = _settings.Terminal with { NewLineOnCr = value } });
-    }
-
-    public bool ReopenAutomatically
-    {
-        get => _settings.ReopenAutomatically;
-        set => _ = ApplyAsync(_settings with { ReopenAutomatically = value });
-    }
-
     /// <summary>Open port, Try again and Reconnect now.</summary>
     [RelayCommand]
     private async Task OpenAsync()
     {
         await Session.OpenAsync();
         if (Session.State is PortSessionState.Open)
-            _store.Save(Session.Port.Identity, _settings, _time.GetUtcNow());
+            _store.Save(Session.Port.Identity, Settings, _time.GetUtcNow(), Session.Port.Description);
     }
 
     [RelayCommand]
@@ -265,34 +167,35 @@ public sealed partial class DeviceTabViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void Clear() => ClearRequested?.Invoke(this, EventArgs.Empty);
 
-    public void Dispose()
+    public override void Dispose()
     {
         _clock.Stop();
         Session.StateChanged -= OnSessionChanged;
         Session.PortChanged -= OnSessionChanged;
     }
 
-    private async Task ApplyAsync(DeviceSettings settings)
+    // Applies a change from the port settings to the session and remembers it for the device.
+    private async Task<bool> ApplyAsync(DeviceSettings settings)
     {
-        if (settings == _settings)
-            return;
-
-        if (settings.Serial != _settings.Serial && !await Session.ApplySettingsAsync(settings.Serial))
+        if (settings.Serial != Settings.Serial && !await Session.ApplySettingsAsync(settings.Serial))
         {
             ShowSettingsRejectedBar = true;
-            OnPropertyChanged(string.Empty);
-            return;
+            return false;
         }
 
-        var terminalChanged = settings.Terminal != _settings.Terminal;
-        _settings = settings;
+        var terminalChanged = settings.Terminal != Settings.Terminal;
         Session.ReopenAutomatically = settings.ReopenAutomatically;
         ShowSettingsRejectedBar = false;
-        _store.Save(Session.Port.Identity, settings, _time.GetUtcNow());
+        _store.Save(Session.Port.Identity, settings, _time.GetUtcNow(), Session.Port.Description);
 
-        if (terminalChanged)
-            TerminalSettingsChanged?.Invoke(this, EventArgs.Empty);
-        OnPropertyChanged(string.Empty);
+        // The editor takes the new settings when this returns; refresh what shows them afterwards.
+        _ui.TryEnqueue(() =>
+        {
+            if (terminalChanged)
+                TerminalSettingsChanged?.Invoke(this, EventArgs.Empty);
+            OnPropertyChanged(string.Empty);
+        });
+        return true;
     }
 
     // Session events arrive on background threads.

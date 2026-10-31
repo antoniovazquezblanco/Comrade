@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using COMrade.Core.Ports;
 
 namespace COMrade.Core.Settings;
@@ -7,19 +5,9 @@ namespace COMrade.Core.Settings;
 /// <summary>
 /// Remembers the settings of each device by its <see cref="DeviceIdentity.Key"/>, in a JSON file.
 /// </summary>
-/// <remarks>
-/// The file is read once and rewritten on every save through a temporary file, so a crash never
-/// leaves it half written. A file that cannot be read is set aside and COMrade starts afresh.
-/// </remarks>
+/// <remarks>The file is read once and rewritten on every change (see <see cref="JsonFile"/>).</remarks>
 public sealed class DeviceSettingsStore
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter() },
-    };
-
     private readonly string _path;
     private readonly Lock _lock = new();
     private readonly Dictionary<string, RememberedDevice> _devices;
@@ -27,11 +15,24 @@ public sealed class DeviceSettingsStore
     public DeviceSettingsStore(string path)
     {
         _path = path;
-        _devices = Load(path);
+        _devices = new(JsonFile.Read<Dictionary<string, RememberedDevice>>(path) ?? [], StringComparer.OrdinalIgnoreCase);
     }
+
+    /// <summary>A device was saved or forgotten. Raised on the thread that made the change.</summary>
+    public event EventHandler? Changed;
 
     public static string DefaultPath { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "COMrade", "devices.json");
+
+    /// <summary>Every remembered device by identity key, most recently used first.</summary>
+    public IReadOnlyList<KeyValuePair<string, RememberedDevice>> Devices
+    {
+        get
+        {
+            lock (_lock)
+                return _devices.OrderByDescending(device => device.Value.LastUsed).ToList();
+        }
+    }
 
     /// <summary>The device's remembered settings, or null for a device not seen before.</summary>
     public RememberedDevice? Find(DeviceIdentity identity)
@@ -40,33 +41,42 @@ public sealed class DeviceSettingsStore
             return _devices.GetValueOrDefault(identity.Key);
     }
 
-    public void Save(DeviceIdentity identity, DeviceSettings settings, DateTimeOffset usedAt)
+    /// <param name="description">Device name to show in the settings; the previous one is kept when null.</param>
+    public void Save(DeviceIdentity identity, DeviceSettings settings, DateTimeOffset usedAt, string? description = null)
     {
         lock (_lock)
         {
-            _devices[identity.Key] = new RememberedDevice(settings, usedAt);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            var temporary = _path + ".tmp";
-            File.WriteAllText(temporary, JsonSerializer.Serialize(_devices, JsonOptions));
-            File.Move(temporary, _path, overwrite: true);
+            description ??= _devices.GetValueOrDefault(identity.Key)?.Description;
+            _devices[identity.Key] = new RememberedDevice(settings, usedAt, description, identity.PortName);
+            JsonFile.Write(_path, _devices);
         }
+
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    private static Dictionary<string, RememberedDevice> Load(string path)
+    /// <summary>Forgets one device by its identity key; it gets the new-device defaults next time.</summary>
+    public void Forget(string key)
     {
-        if (!File.Exists(path))
-            return new(StringComparer.OrdinalIgnoreCase);
+        lock (_lock)
+        {
+            if (!_devices.Remove(key))
+                return;
+            JsonFile.Write(_path, _devices);
+        }
 
-        try
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void ForgetAll()
+    {
+        lock (_lock)
         {
-            var devices = JsonSerializer.Deserialize<Dictionary<string, RememberedDevice>>(File.ReadAllText(path), JsonOptions);
-            return new(devices ?? [], StringComparer.OrdinalIgnoreCase);
+            if (_devices.Count == 0)
+                return;
+            _devices.Clear();
+            JsonFile.Write(_path, _devices);
         }
-        catch (JsonException)
-        {
-            File.Move(path, path + ".unreadable", overwrite: true);
-            return new(StringComparer.OrdinalIgnoreCase);
-        }
+
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 }

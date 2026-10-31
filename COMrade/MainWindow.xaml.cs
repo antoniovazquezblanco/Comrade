@@ -39,7 +39,9 @@ public sealed partial class MainWindow : Window
     private readonly PortWatcher _watcher;
     private readonly ThreadKeyboardHook _keyboard;
     private readonly WindowMessageMonitor _messages;
-    private readonly Dictionary<DeviceTabViewModel, DeviceTabView> _views = [];
+    private const VirtualKey Comma = (VirtualKey)0xBC;
+
+    private readonly Dictionary<TabViewModel, FrameworkElement> _views = [];
     private bool _closed;
 
     public MainWindow(MainViewModel viewModel, PortWatcher watcher)
@@ -98,9 +100,12 @@ public sealed partial class MainWindow : Window
         if (_closed)
             return false;
 
-        var selected = SelectedView;
+        var selected = SelectedView as DeviceTabView;
         switch (key, shift)
         {
+            case (Comma, false):
+                ViewModel.OpenSettings();
+                return true;
             case (VirtualKey.T, true):
                 ShowPortMenu();
                 return true;
@@ -123,7 +128,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private DeviceTabView? SelectedView =>
+    private FrameworkElement? SelectedView =>
         ViewModel.SelectedTab is { } tab && _views.TryGetValue(tab, out var view) ? view : null;
 
     private bool IsEditingText => Content.XamlRoot is { } root && FocusManager.GetFocusedElement(root) is TextBox;
@@ -139,7 +144,7 @@ public sealed partial class MainWindow : Window
     // While a terminal is shown, the window is resized in whole character cells, as in Windows Terminal.
     private void OnWindowMessage(object? sender, WindowMessageEventArgs e)
     {
-        if (e.Message.MessageId != WM_SIZING || SelectedView?.GetGrid() is not var (cellWidth, cellHeight, gridWidth, gridHeight))
+        if (e.Message.MessageId != WM_SIZING || (SelectedView as DeviceTabView)?.GetGrid() is not var (cellWidth, cellHeight, gridWidth, gridHeight))
             return;
 
         // lParam points to the proposed window RECT: left, top, right, bottom.
@@ -187,6 +192,8 @@ public sealed partial class MainWindow : Window
 
     private void OnAddTabButtonClick(TabView sender, object args) => ShowPortMenu();
 
+    private void OnSettingsClick(object sender, RoutedEventArgs e) => ViewModel.OpenSettings();
+
     private void ShowPortMenu()
     {
         var menu = (MenuFlyout)Tabs.Resources["PortMenu"];
@@ -213,7 +220,7 @@ public sealed partial class MainWindow : Window
     }
 
     private async void OnTabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args) =>
-        await ViewModel.CloseTabAsync((DeviceTabViewModel)args.Item);
+        await ViewModel.CloseTabAsync((TabViewModel)args.Item);
 
     // Each tab's contents are created once and only hidden while another tab is selected.
     // Dragging a tab removes and inserts it again, so views are matched to tabs afterwards.
@@ -227,7 +234,7 @@ public sealed partial class MainWindow : Window
             if (!ViewModel.Tabs.Contains(tab))
             {
                 _views.Remove(tab);
-                view.Dispose();
+                (view as IDisposable)?.Dispose();
                 TabContents.Children.Remove(view);
             }
         }
@@ -236,7 +243,13 @@ public sealed partial class MainWindow : Window
         {
             if (_views.ContainsKey(tab))
                 continue;
-            var view = new DeviceTabView(tab) { Visibility = Visibility.Collapsed };
+            FrameworkElement view = tab switch
+            {
+                DeviceTabViewModel device => new DeviceTabView(device),
+                SettingsTabViewModel settings => new SettingsView(settings),
+                _ => throw new InvalidOperationException($"No view for {tab.GetType().Name}."),
+            };
+            view.Visibility = Visibility.Collapsed;
             _views.Add(tab, view);
             TabContents.Children.Add(view);
         }
@@ -257,7 +270,7 @@ public sealed partial class MainWindow : Window
         foreach (var (tab, view) in _views)
             view.Visibility = tab == ViewModel.SelectedTab ? Visibility.Visible : Visibility.Collapsed;
 
-        if (ViewModel.SelectedTab is { } selected && _views.TryGetValue(selected, out var selectedView))
+        if (ViewModel.SelectedTab is { } selected && _views.TryGetValue(selected, out var shown) && shown is DeviceTabView selectedView)
             DispatcherQueue.TryEnqueue(() =>
             {
                 if (!_closed)
@@ -289,7 +302,7 @@ public sealed partial class MainWindow : Window
         ViewModel.Tabs.CollectionChanged -= OnTabsChanged;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         foreach (var view in _views.Values)
-            view.Dispose();
+            (view as IDisposable)?.Dispose();
         ViewModel.PortList.Dispose();
         _watcher.Dispose();
 

@@ -43,6 +43,22 @@ public static class DisplayText
         return "Prolific PL2303";
     }
 
+    /// <summary>
+    /// Readable name for a remembered device saved without one, from its identity key: for example
+    /// "USB 1A86:7523 · serial A50285BI", "USB 1A86:7523 adapter" or "COM1".
+    /// </summary>
+    public static string DeviceKey(string key)
+    {
+        var parts = key.Split(':', 5);
+        return parts switch
+        {
+            ["usb", var vendor, var product, "sn", var serial] => $"USB {vendor}:{product} · serial {serial}",
+            ["usb", var vendor, var product, ..] => $"USB {vendor}:{product} adapter",
+            ["port", var port] => port,
+            _ => key,
+        };
+    }
+
     public static string Bytes(long count) => count switch
     {
         < 1024 => $"{count} B",
