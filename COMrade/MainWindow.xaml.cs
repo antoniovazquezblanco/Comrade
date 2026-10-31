@@ -132,9 +132,10 @@ public sealed partial class MainWindow : Window
             case ShortcutAction.PreviousTab:
                 SelectNextTab(-1);
                 return true;
-            // The tab's: text boxes keep these keys for their own copy, paste and moves.
+            // The tab's: text boxes keep these keys for their own copy, paste and moves. Find has no
+            // use in them, and in the find panel's own box it searches the latest output again.
             default:
-                return selected is not null && !IsEditingText && selected.RunShortcut(action);
+                return selected is not null && (action is ShortcutAction.Find || !IsEditingText) && selected.RunShortcut(action);
         }
     }
 

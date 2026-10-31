@@ -7,18 +7,28 @@ using COMrade.Core.Settings;
 using COMrade.Core.Shortcuts;
 using COMrade.Terminal;
 using COMrade.ViewModels;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.Windows.Storage.Pickers;
+using Windows.UI.Core;
+using VirtualKey = Windows.System.VirtualKey;
 
 namespace COMrade.Views;
 
-/// <summary>The contents of a device tab: toolbar, bars, settings card or terminal, status bar.</summary>
+/// <summary>The contents of a device tab: toolbar, bars, terminal and find panel, status bar.</summary>
 public sealed partial class DeviceTabView : UserControl, IDisposable
 {
     private readonly DeviceTerminal _terminal;
     private readonly AppSettingsStore _settings;
+    private readonly DispatcherQueueTimer _highlightLater;
     private bool _wasOpen;
+
+    // The search the terminal shows highlighted, if any, and whether it was searched again since.
+    private Marks? _highlighted;
+    private bool _searchedAgain;
 
     public DeviceTabView(DeviceTabViewModel viewModel, AppSettingsStore settings)
     {
@@ -39,11 +49,135 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
 
         // Hidden tabs must hide the terminal itself, see TerminalView.
         RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => Terminal.Visibility = Visibility);
+
+        // Highlights wait for typing to pause. A tab moved to another window shows its highlights
+        // again.
+        _highlightLater = DispatcherQueue.CreateTimer();
+        _highlightLater.Interval = TimeSpan.FromMilliseconds(250);
+        _highlightLater.IsRepeating = false;
+        _highlightLater.Tick += (_, _) => Highlight();
+        viewModel.Find.Searched += OnSearched;
+        viewModel.Find.Chosen += OnChosen;
+        viewModel.Find.PropertyChanged += OnFindChanged;
+        ScheduleHighlight();
     }
 
     public DeviceTabViewModel ViewModel { get; }
 
     public void FocusTerminal() => Terminal.FocusTerminal();
+
+    /// <summary>Opens the find panel with the latest output and puts the cursor in it.</summary>
+    public void ShowFind()
+    {
+        ViewModel.Find.Open();
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            FindBox.Focus(FocusState.Programmatic);
+            FindBox.SelectAll();
+        });
+    }
+
+    private void OnFindClick(object sender, RoutedEventArgs e) => ShowFind();
+
+    private void OnCloseFindClick(object sender, RoutedEventArgs e) => CloseFind();
+
+    private void CloseFind()
+    {
+        ViewModel.Find.CloseCommand.Execute(null);
+        Terminal.FocusTerminal();
+    }
+
+    private void OnFindKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case VirtualKey.Enter when InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down):
+                ViewModel.Find.PreviousCommand.Execute(null);
+                break;
+            case VirtualKey.Enter:
+                ViewModel.Find.NextCommand.Execute(null);
+                break;
+            default:
+                return;
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnFindPanelKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is not VirtualKey.Escape)
+            return;
+        CloseFind();
+        e.Handled = true;
+    }
+
+    // Searching again marks what arrived since too.
+    private void OnSearched(object? sender, EventArgs e)
+    {
+        _searchedAgain = true;
+        ScheduleHighlight();
+    }
+
+    // Only a match the user chooses moves the terminal: at once, while its colour of its own
+    // follows once the selection rests.
+    private void OnChosen(object? sender, EventArgs e)
+    {
+        RevealSelected();
+        ScheduleHighlight();
+    }
+
+    private void OnMatchClick(object sender, ItemClickEventArgs e) => ViewModel.Find.Choose((FindResult)e.ClickedItem);
+
+    private void OnFindChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(FindViewModel.Selected) or nameof(FindViewModel.Highlight) or nameof(FindViewModel.IsOpen))
+            ScheduleHighlight();
+    }
+
+    private void ScheduleHighlight()
+    {
+        _highlightLater.Stop();
+        _highlightLater.Start();
+    }
+
+    // The terminal highlights the matches while the panel is open and asks for it. Showing the
+    // output again takes a moment for a long history, so it happens only when the marks change;
+    // the view stays where it was.
+    private void Highlight()
+    {
+        var find = ViewModel.Find;
+        Marks? wanted = find.IsOpen && find.Highlight && find.Query.Length > 0
+            ? new Marks(find.Query, find.MatchCase, find.Selected?.Position)
+            : null;
+        if (wanted == _highlighted && (wanted is null || !_searchedAgain))
+            return;
+
+        _terminal.Repaint(wanted?.Query, wanted?.MatchCase ?? false, wanted?.Selected);
+        _highlighted = wanted;
+        _searchedAgain = false;
+    }
+
+    // The terminal scrolls to the selected match, or the panel says why it cannot.
+    private void RevealSelected()
+    {
+        var find = ViewModel.Find;
+        if (find.Selected is not { } selected)
+        {
+            find.Note = null;
+            return;
+        }
+
+        var shown = find.Locate(selected) is var (lines, index) && _terminal.Reveal(lines, index);
+        find.Note = shown ? null : "The terminal no longer keeps this line, only the list does.";
+    }
+
+    // Keep the selected match in view as previous / next move through the list.
+    private void OnMatchSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ListView list && list.SelectedItem is { } item)
+            list.ScrollIntoView(item);
+    }
 
     /// <summary>The terminal's character grid, in physical pixels; null until it has been laid out.</summary>
     public (int CellWidth, int CellHeight, int GridWidth, int GridHeight)? GetGrid() => Terminal.GetGrid();
@@ -64,6 +198,9 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
                 return true;
             case ShortcutAction.Paste:
                 Terminal.Paste();
+                return true;
+            case ShortcutAction.Find:
+                ShowFind();
                 return true;
             case ShortcutAction.ClearTerminal:
                 ViewModel.ClearCommand.Execute(null);
@@ -96,6 +233,10 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         ViewModel.TerminalMessage -= OnTerminalMessage;
         ViewModel.ClearRequested -= OnClearRequested;
         ViewModel.PropertyChanged -= OnPropertyChanged;
+        ViewModel.Find.Searched -= OnSearched;
+        ViewModel.Find.Chosen -= OnChosen;
+        ViewModel.Find.PropertyChanged -= OnFindChanged;
+        _highlightLater.Stop();
         _terminal.Dispose();
     }
 
@@ -118,6 +259,7 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         SetToolTip(ClosePortButton, "Close the port", ShortcutAction.OpenOrClosePort);
         SetToolTip(BreakButton, "Send a break of 250 ms", ShortcutAction.SendBreak);
         SetToolTip(ClearButton, "Clear the terminal", ShortcutAction.ClearTerminal);
+        SetToolTip(FindButton, "Find in the output", ShortcutAction.Find);
         SetToolTip(LogButton, "Log this session to a file", ShortcutAction.StartOrStopLogging);
         SetToolTip(ScrollToBottomButton, "Show the newest output", ShortcutAction.ScrollToBottom);
 
@@ -125,7 +267,17 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
             ToolTipService.SetToolTip(element, DisplayText.WithKeys(text, keymap.KeysFor(action)));
     }
 
-    private void OnClearRequested(object? sender, EventArgs e) => _terminal.Clear();
+    // What the terminal shows highlighted: the matches of a search, the selected one apart.
+    private readonly record struct Marks(string Query, bool MatchCase, (int Line, int Column)? Selected);
+
+    // The panel lists what is shown: nothing, once cleared.
+    private void OnClearRequested(object? sender, EventArgs e)
+    {
+        _terminal.Clear();
+        _highlighted = null;
+        if (ViewModel.Find.IsOpen)
+            ViewModel.Find.RefreshCommand.Execute(null);
+    }
 
     private void OnIsScrolledUpChanged(object? sender, EventArgs e) =>
         ScrollToBottomButton.Visibility = Terminal.IsScrolledUp ? Visibility.Visible : Visibility.Collapsed;

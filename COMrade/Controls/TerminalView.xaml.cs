@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using COMrade.Core.Terminal;
 using Microsoft.Terminal.Wpf;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -66,6 +67,42 @@ public sealed partial class TerminalView : UserControl
 
     /// <summary>Clears the screen and the scrollback.</summary>
     public void Clear() => _connection.Write("\e[2J\e[3J\e[H"u8);
+
+    /// <summary>
+    /// Shows <paramref name="output"/> in place of everything shown, as a new terminal would, and
+    /// keeps the view where it was: for output that is the same text, in the same rows, as when
+    /// only its colours change.
+    /// </summary>
+    public void Repaint(ReadOnlySpan<byte> output)
+    {
+        int? top = IsScrolledUp && _scrollBar is { } scrollBar ? (int)scrollBar.Value : null;
+
+        // From the bottom: a view scrolled up stays on the same text as output arrives, and would
+        // end at the top of the output shown again.
+        ScrollToBottom();
+
+        // A soft reset, the main screen rather than a full-screen program's, and nothing in the
+        // screen or the scrollback.
+        _connection.Write("\e[!p\e[?1049l\e[2J\e[3J\e[H"u8);
+        _connection.Write(output);
+
+        // Back where it was, at once and again when the scroll bar has caught up with the output,
+        // which the control tells it of later.
+        if (top is { } row)
+        {
+            Term.ScrollTo(row);
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => Term.ScrollTo(row));
+        }
+    }
+
+    /// <summary>Characters in a row; 0 until the terminal has been laid out.</summary>
+    public int Columns => Term.Columns;
+
+    /// <summary>Rows of output the terminal keeps, those in view included.</summary>
+    public int BufferRows => _scrollBar is { } scrollBar ? Math.Max(Term.Rows, (int)(scrollBar.Maximum + scrollBar.ViewportSize)) : Term.Rows;
+
+    /// <summary>Scrolls row <paramref name="row"/> of the scrollback into view, a third of the way down.</summary>
+    public void ShowRow(int row) => Term.ScrollTo(Math.Max(0, row - Term.Rows / 3));
 
     public void FocusTerminal() => Term.Focus(FocusState.Programmatic);
 

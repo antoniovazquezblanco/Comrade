@@ -12,6 +12,7 @@ namespace COMrade.Core.Settings;
 /// <param name="Updates">How COMrade looks for new releases; null in files from before it existed.</param>
 /// <param name="AiAccess">What AI assistants may use; off until the user turns it on.</param>
 /// <param name="Shortcuts">The keyboard shortcuts changed from the defaults (see <see cref="Keymap.Changes"/>); null when none are.</param>
+/// <param name="HighlightMatches">Whether the find panel highlights its matches in the terminal; on until turned off.</param>
 public sealed record AppSettings(
     DeviceSettings NewDevice,
     TabMode TabMode = TabMode.Compact,
@@ -19,7 +20,8 @@ public sealed record AppSettings(
     LogSettings? Logging = null,
     UpdateSettings? Updates = null,
     AiAccess AiAccess = AiAccess.Off,
-    IReadOnlyDictionary<string, string?>? Shortcuts = null)
+    IReadOnlyDictionary<string, string?>? Shortcuts = null,
+    bool HighlightMatches = true)
 {
     public static AppSettings Default { get; } = new(DeviceSettings.Default, Terminal: TerminalAppearance.Default);
 

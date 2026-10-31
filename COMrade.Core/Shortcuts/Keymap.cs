@@ -55,6 +55,7 @@ public sealed class Keymap
         [ShortcutAction.SendBreak] = new(VirtualKey.B, Shift: true),
         [ShortcutAction.Copy] = new(VirtualKey.C, Shift: true),
         [ShortcutAction.Paste] = new(VirtualKey.V, Shift: true),
+        [ShortcutAction.Find] = new(VirtualKey.F, Shift: true),
         [ShortcutAction.ClearTerminal] = new(VirtualKey.K, Shift: true),
         [ShortcutAction.StartOrStopLogging] = new(VirtualKey.L, Shift: true),
         [ShortcutAction.ScrollToTop] = new(VirtualKey.Home, Shift: true),

@@ -94,4 +94,41 @@ public class TerminalHistoryTests
 
         Assert.Equal("one\r\ntwo\r\n", Text(logged));
     }
+
+    [Fact]
+    public void Lines_dropped_beyond_the_limit_are_counted()
+    {
+        var history = new TerminalHistory(limit: 16);
+
+        history.Write("line one\r\nline two\r\nline three\r\n"u8);
+
+        Assert.Equal(2, history.DroppedLines);
+    }
+
+    [Fact]
+    public void A_snapshot_has_what_is_kept_and_the_lines_dropped_before_it()
+    {
+        var history = new TerminalHistory(limit: 16);
+        history.Write("line one\r\nline two\r\nline three\r\n"u8);
+
+        var (output, dropped) = history.Snapshot();
+
+        Assert.Equal("line three\r\n", Encoding.UTF8.GetString(output));
+        Assert.Equal(2, dropped);
+    }
+
+    [Fact]
+    public void A_replay_gets_everything_kept_without_showing_it_again()
+    {
+        var history = new TerminalHistory();
+        var shown = new List<byte[]>();
+        history.Attach(shown.Add);
+        history.Write("boot\r\n"u8);
+
+        var replayed = new List<byte[]>();
+        history.Replay((output, _) => replayed.Add(output));
+
+        Assert.Equal("boot\r\n", Text(replayed));
+        Assert.Single(shown);
+    }
 }
