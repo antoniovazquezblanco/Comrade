@@ -29,6 +29,7 @@ public sealed partial class DeviceTabViewModel : TabViewModel
     private readonly DispatcherQueueTimer _clock;
     private PortSessionState _state;
     private bool _settingsRejected;
+    private bool _isRenaming;
     private DateTimeOffset? _disconnectedAt;
     private DateTimeOffset? _waitingSince;
     private string? _portNameAtDisconnect;
@@ -69,11 +70,30 @@ public sealed partial class DeviceTabViewModel : TabViewModel
 
     // Tab, toolbar and settings card.
 
-    public override string Header => $"{PortName} · {Session.Port.Description}";
+    /// <summary>The name the user gave the tab, or the port and device, e.g. "COM5 · USB-SERIAL CH340".</summary>
+    public override string Header => Name ?? DefaultHeader;
 
-    public override string ShortHeader => PortName;
+    /// <summary>In compact tab mode: the name, or the port.</summary>
+    public override string ShortHeader => Name ?? PortName;
 
-    public override string WindowTitle => $"COMrade - {PortName}";
+    public override string WindowTitle => $"COMrade - {Name ?? PortName}";
+
+    /// <summary>Tab tooltip: a renamed tab still shows its port and device.</summary>
+    public string ToolTip => Name is null ? DefaultHeader : $"{Name} · {DefaultHeader}";
+
+    /// <summary>The name the user gave the tab, remembered for the device; null for the default title.</summary>
+    public string? Name => Settings.Name;
+
+    public bool IsNamed => Name is not null;
+
+    /// <summary>The tab title is being edited in place.</summary>
+    public bool IsRenaming
+    {
+        get => _isRenaming;
+        set => SetProperty(ref _isRenaming, value);
+    }
+
+    private string DefaultHeader => $"{PortName} · {Session.Port.Description}";
 
     public string PortName => Session.Port.PortName;
 
@@ -165,6 +185,24 @@ public sealed partial class DeviceTabViewModel : TabViewModel
 
     [RelayCommand]
     private Task CloseAsync() => Session.CloseAsync();
+
+    [RelayCommand]
+    private void StartRename() => IsRenaming = true;
+
+    /// <summary>Gives the tab a name; an empty name goes back to the default title.</summary>
+    public void Rename(string? name)
+    {
+        IsRenaming = false;
+        name = string.IsNullOrWhiteSpace(name) || name.Trim() == DefaultHeader ? null : name.Trim();
+        if (name == Name)
+            return;
+
+        // Saved like any other change of the device's settings.
+        _ = Editor.ChangeAsync(Settings with { Name = name });
+    }
+
+    [RelayCommand]
+    private void ResetName() => Rename(null);
 
     [RelayCommand]
     private void Clear() => ClearRequested?.Invoke(this, EventArgs.Empty);
