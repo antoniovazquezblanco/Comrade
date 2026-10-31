@@ -3,9 +3,9 @@
     x:Class="COMrade.Controls.TerminalView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:term="using:Microsoft.Terminal.Wpf">
+    xmlns:controls="using:COMrade.Controls">
     <Grid Background="#121212">
         <!-- A native child window: no WinUI element can be drawn on top of it. -->
-        <term:TerminalControl x:Name="Term" />
+        <controls:SafeTerminalControl x:Name="Term" />
     </Grid>
 </UserControl>

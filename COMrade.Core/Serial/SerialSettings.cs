@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace COMrade.Core.Serial;
 
 /// <summary>Line settings for a serial port.</summary>
@@ -14,6 +16,7 @@ public sealed record SerialSettings(
         new(115200, 8, Parity.None, StopBits.One, FlowControl.None, LineEnding.Cr);
 
     /// <summary>Compact frame notation, such as "8N1" or "7E1.5".</summary>
+    [JsonIgnore]
     public string FrameNotation => $"{DataBits}{ParityLetter(Parity)}{StopBitsText(StopBits)}";
 
     private static char ParityLetter(Parity parity) => parity switch

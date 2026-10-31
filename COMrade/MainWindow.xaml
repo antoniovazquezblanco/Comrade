@@ -3,7 +3,8 @@
     x:Class="COMrade.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:COMrade.Controls"
+    xmlns:views="using:COMrade.Views"
+    xmlns:vm="using:COMrade.ViewModels"
     Title="COMrade">
 
     <Window.SystemBackdrop>
@@ -16,37 +17,75 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TitleBar x:Name="AppTitleBar" Title="{x:Bind ViewModel.Title, Mode=OneWay}">
-            <TitleBar.IconSource>
-                <ImageIconSource ImageSource="ms-appx:///Assets/TitleBarIcon.png" />
-            </TitleBar.IconSource>
-        </TitleBar>
+        <!-- Tabs in the title bar, like Windows Terminal. The tabs only hold headers: each tab's
+             contents live in TabContents so that its terminal window is never recreated. -->
+        <TabView
+            x:Name="Tabs"
+            VerticalAlignment="Top"
+            AddTabButtonClick="OnAddTabButtonClick"
+            Background="Transparent"
+            CanReorderTabs="True"
+            SelectedItem="{x:Bind ViewModel.SelectedTab, Mode=TwoWay}"
+            TabCloseRequested="OnTabCloseRequested"
+            TabItemsSource="{x:Bind ViewModel.Tabs}"
+            TabWidthMode="SizeToContent">
+            <TabView.Resources>
+                <!-- 4 + 28 high tabs: the strip is exactly as high as the system caption buttons. -->
+                <Thickness x:Key="TabViewHeaderPadding">0,4,0,0</Thickness>
+                <x:Double x:Key="TabViewItemMinHeight">28</x:Double>
+                <x:Double x:Key="TabViewItemHeaderCloseButtonHeight">20</x:Double>
+                <!-- The ports menu of the + button, in a window of its own so that it can cover the terminal. -->
+                <MenuFlyout
+                    x:Key="PortMenu"
+                    Opening="OnPortMenuOpening"
+                    Placement="BottomEdgeAlignedLeft"
+                    ShouldConstrainToRootBounds="False" />
+            </TabView.Resources>
+            <TabView.TabStripHeader>
+                <!-- As tall as a tab, also while there are no tabs; the icon lines up
+                     with the tabs and the + button, which sit at the bottom of the strip. -->
+                <Grid Height="32">
+                    <Image
+                        Width="16"
+                        Height="16"
+                        Margin="14,0,8,6"
+                        VerticalAlignment="Bottom"
+                        Source="ms-appx:///Assets/TitleBarIcon.png" />
+                </Grid>
+            </TabView.TabStripHeader>
+            <TabView.TabStripFooter>
+                <Grid x:Name="DragRegion" Background="Transparent" />
+            </TabView.TabStripFooter>
+            <TabView.TabItemTemplate>
+                <DataTemplate x:DataType="vm:DeviceTabViewModel">
+                    <TabViewItem ToolTipService.ToolTip="{x:Bind Header, Mode=OneWay}">
+                        <TabViewItem.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Ellipse
+                                    Width="8"
+                                    Height="8"
+                                    VerticalAlignment="Center">
+                                    <Ellipse.Fill>
+                                        <SolidColorBrush Color="{x:Bind StatusColor, Mode=OneWay}" />
+                                    </Ellipse.Fill>
+                                </Ellipse>
+                                <TextBlock Text="{x:Bind Header, Mode=OneWay}" />
+                            </StackPanel>
+                        </TabViewItem.Header>
+                    </TabViewItem>
+                </DataTemplate>
+            </TabView.TabItemTemplate>
+        </TabView>
 
-        <controls:TerminalView
-            x:Name="Terminal"
+        <Grid
+            x:Name="TabContents"
             Grid.Row="1"
-            Visibility="Collapsed" />
-
-        <StackPanel
-            x:Name="Placeholder"
-            Grid.Row="1"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            Spacing="8">
-            <Image
-                Width="96"
-                Height="96"
-                Margin="0,0,0,8"
-                Source="ms-appx:///Assets/AppIcon.png" />
-            <TextBlock
-                HorizontalAlignment="Center"
-                Style="{StaticResource TitleTextBlockStyle}"
-                Text="COMrade" />
-            <TextBlock
-                HorizontalAlignment="Center"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource BodyTextBlockStyle}"
-                Text="Serial port utility" />
-        </StackPanel>
+            Background="{ThemeResource TabViewItemHeaderBackgroundSelected}">
+            <views:PortPickerView
+                x:Name="PortPicker"
+                PortSelected="OnPortSelected"
+                ViewModel="{x:Bind ViewModel.PortList}"
+                Visibility="{x:Bind ViewModel.ShowEmptyState, Mode=OneWay}" />
+        </Grid>
     </Grid>
 </Window>

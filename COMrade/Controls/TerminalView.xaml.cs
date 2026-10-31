@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using COMrade.Core.Terminal;
 using Microsoft.Terminal.Wpf;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -24,6 +25,8 @@ public sealed partial class TerminalView : UserControl
 
     private readonly TerminalConnection _connection = new();
     private bool _themed;
+    private (int Width, int Height)? _cell;
+    private double _cellScale;
 
     public TerminalView()
     {
@@ -47,6 +50,48 @@ public sealed partial class TerminalView : UserControl
     public void Clear() => _connection.Write("\e[2J\e[3J\e[H"u8);
 
     public void FocusTerminal() => Term.Focus(FocusState.Programmatic);
+
+    /// <summary>Copies the selected text, if any.</summary>
+    public void Copy()
+    {
+        if (Term.GetSelectedText() is { Length: > 0 } selection)
+            CopyToClipboard(selection);
+    }
+
+    /// <summary>Sends the clipboard text as if it had been typed.</summary>
+    public void Paste() => _ = PasteFromClipboardAsync();
+
+    /// <summary>
+    /// The size of a character cell and the space available to the cells, in physical pixels; null
+    /// until the terminal has been laid out.
+    /// </summary>
+    public (int CellWidth, int CellHeight, int GridWidth, int GridHeight)? GetGrid()
+    {
+        if (XamlRoot is null || Term.Columns <= 0 || Term.Rows <= 0)
+            return null;
+
+        var scale = XamlRoot.RasterizationScale;
+        if (scale != _cellScale)
+        {
+            _cell = null;
+            _cellScale = scale;
+        }
+
+        // The scroll bar sits beside the cells.
+        var scrollBarWidth = (Term.FindName("scrollbar") as ScrollBar)?.ActualWidth ?? 0;
+        var gridWidth = (int)Math.Round((Term.ActualWidth - scrollBarWidth) * scale);
+        var gridHeight = (int)Math.Round(Term.ActualHeight * scale);
+
+        // The font never changes, so the cell is worked out once per scale, while the layout is
+        // settled; during a resize the row and column counts can lag behind the size.
+        if (_cell is null
+            && CharacterGrid.InferCellSize(gridWidth, Term.Columns) is { } cellWidth
+            && CharacterGrid.InferCellSize(gridHeight, Term.Rows) is { } cellHeight)
+            _cell = (cellWidth, cellHeight);
+
+        return _cell is var (width, height) ? (width, height, gridWidth, gridHeight) : null;
+    }
+
 
     // Ctrl+C copies when text is selected and otherwise reaches the device as 0x03, like in
     // Windows Terminal; Ctrl+V pastes the clipboard as typed text.

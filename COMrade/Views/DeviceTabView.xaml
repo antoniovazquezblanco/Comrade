@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="COMrade.Views.DeviceTabView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:COMrade.Controls"
+    xmlns:vm="using:COMrade.ViewModels">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar. -->
+        <StackPanel
+            Padding="8,6"
+            Orientation="Horizontal"
+            Spacing="6">
+            <DropDownButton x:Name="PortButton" ToolTipService.ToolTip="Port settings">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.PortName, Mode=OneWay}" />
+                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.ToolbarSummary, Mode=OneWay}" />
+                </StackPanel>
+                <DropDownButton.Flyout>
+                    <!-- A window of its own: the terminal below is a native window that hides anything drawn in the main window. -->
+                    <Flyout Placement="BottomEdgeAlignedLeft" ShouldConstrainToRootBounds="False">
+                        <Flyout.FlyoutPresenterStyle>
+                            <Style BasedOn="{StaticResource DefaultFlyoutPresenterStyle}" TargetType="FlyoutPresenter">
+                                <Setter Property="ScrollViewer.HorizontalScrollMode" Value="Disabled" />
+                                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+                            </Style>
+                        </Flyout.FlyoutPresenterStyle>
+                        <!-- A flyout is at most 456 wide, its padding and border included. -->
+                        <StackPanel Width="416" Spacing="12">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.Header, Mode=OneWay}" />
+                            <Grid ColumnSpacing="12" RowSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <!-- SelectedItem too: an editable ComboBox does not show its initial Text. -->
+                                <ComboBox
+                                    HorizontalAlignment="Stretch"
+                                    Header="Speed (baud)"
+                                    IsEditable="True"
+                                    ItemsSource="{x:Bind vm:DeviceTabViewModel.BaudRateOptions}"
+                                    SelectedItem="{x:Bind ViewModel.BaudRateText, Mode=OneWay}"
+                                    Text="{x:Bind ViewModel.BaudRateText, Mode=TwoWay}" />
+                                <ComboBox
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    Header="Data bits"
+                                    ItemsSource="{x:Bind vm:DeviceTabViewModel.DataBitsOptions}"
+                                    SelectedIndex="{x:Bind ViewModel.DataBitsIndex, Mode=TwoWay}" />
+                                <ComboBox
+                                    Grid.Column="2"
+                                    HorizontalAlignment="Stretch"
+                                    Header="Parity"
+                                    ItemsSource="{x:Bind vm:DeviceTabViewModel.ParityOptions}"
+                                    SelectedIndex="{x:Bind ViewModel.ParityIndex, Mode=TwoWay}" />
+                                <ComboBox
+                                    Grid.Row="1"
+                                    HorizontalAlignment="Stretch"
+                                    Header="Stop bits"
+                                    ItemsSource="{x:Bind vm:DeviceTabViewModel.StopBitsOptions}"
+                                    SelectedIndex="{x:Bind ViewModel.StopBitsIndex, Mode=TwoWay}" />
+                                <ComboBox
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    Header="Flow control"
+                                    ItemsSource="{x:Bind vm:DeviceTabViewModel.FlowControlOptions}"
+                                    SelectedIndex="{x:Bind ViewModel.FlowControlIndex, Mode=TwoWay}" />
+                                <ComboBox
+                                    Grid.Row="1"
+                                    Grid.Column="2"
+                                    HorizontalAlignment="Stretch"
+                                    Header="Enter sends"
+                                    ItemsSource="{x:Bind vm:DeviceTabViewModel.SendLineEndingOptions}"
+                                    SelectedIndex="{x:Bind ViewModel.SendLineEndingIndex, Mode=TwoWay}" />
+                            </Grid>
+
+                            <StackPanel>
+                                <CheckBox Content="Local echo (show what I type)" IsChecked="{x:Bind ViewModel.LocalEcho, Mode=TwoWay}" />
+                                <CheckBox Content="New line on received LF" IsChecked="{x:Bind ViewModel.NewLineOnLf, Mode=TwoWay}" />
+                                <CheckBox Content="New line on received CR" IsChecked="{x:Bind ViewModel.NewLineOnCr, Mode=TwoWay}" />
+                                <CheckBox Content="Reopen automatically when the device comes back" IsChecked="{x:Bind ViewModel.ReopenAutomatically, Mode=TwoWay}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Flyout>
+                </DropDownButton.Flyout>
+            </DropDownButton>
+            <Button
+                Command="{x:Bind ViewModel.OpenCommand}"
+                Content="Open port"
+                Style="{StaticResource AccentButtonStyle}"
+                Visibility="{x:Bind ViewModel.CanOpen, Mode=OneWay}" />
+            <Button
+                Command="{x:Bind ViewModel.CloseCommand}"
+                Content="Close port"
+                Visibility="{x:Bind ViewModel.CanClose, Mode=OneWay}" />
+            <AppBarSeparator />
+            <Button Command="{x:Bind ViewModel.ClearCommand}" ToolTipService.ToolTip="Clear the terminal">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontSize="14" Glyph="&#xE894;" />
+                    <TextBlock Text="Clear" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <!-- Bars, in their own row: nothing may be drawn over the terminal. -->
+        <StackPanel Grid.Row="1">
+            <InfoBar
+                Title="{x:Bind ViewModel.WaitingTitle, Mode=OneWay}"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.ShowWaitingBar, Mode=OneWay}"
+                Message="{x:Bind ViewModel.WaitingMessage, Mode=OneWay}"
+                Severity="Warning">
+                <InfoBar.ActionButton>
+                    <Button Command="{x:Bind ViewModel.OpenCommand}" Content="Reconnect now" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+            <InfoBar
+                Title="{x:Bind ViewModel.ErrorTitle, Mode=OneWay}"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.ShowErrorBar, Mode=OneWay}"
+                Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                Severity="Error">
+                <InfoBar.ActionButton>
+                    <Button Command="{x:Bind ViewModel.OpenCommand}" Content="Try again" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+            <InfoBar
+                Title="The driver rejected these settings"
+                IsOpen="{x:Bind ViewModel.ShowSettingsRejectedBar, Mode=TwoWay}"
+                Message="The port keeps its previous settings. Try another speed or frame setting."
+                Severity="Warning" />
+        </StackPanel>
+
+        <controls:TerminalView
+            x:Name="Terminal"
+            Grid.Row="2" />
+
+        <!-- Status bar. -->
+        <Grid
+            Grid.Row="3"
+            Padding="12,4"
+            ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Ellipse
+                    Width="8"
+                    Height="8"
+                    VerticalAlignment="Center">
+                    <Ellipse.Fill>
+                        <SolidColorBrush Color="{x:Bind ViewModel.StatusColor, Mode=OneWay}" />
+                    </Ellipse.Fill>
+                </Ellipse>
+                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
+            </StackPanel>
+            <TextBlock
+                Grid.Column="2"
+                FontFamily="Cascadia Mono"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind ViewModel.ReceivedText, Mode=OneWay}" />
+            <TextBlock
+                Grid.Column="3"
+                FontFamily="Cascadia Mono"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind ViewModel.SentText, Mode=OneWay}" />
+        </Grid>
+    </Grid>
+</UserControl>

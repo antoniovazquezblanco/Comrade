@@ -1,7 +1,7 @@
 COMrade includes the following third-party components.
 
 ================================================================
-Windows Terminal control (Microsoft.Terminal.Control) — https://github.com/microsoft/terminal
+Windows Terminal control (Microsoft.Terminal.Control): https://github.com/microsoft/terminal
 ================================================================
 Copyright (c) Microsoft Corporation. All rights reserved.
 
@@ -27,12 +27,12 @@ SOFTWARE.
 
 ================================================================
 CI.Microsoft.Terminal.WinUI3.Unofficial 1.0.20-beta.1 (WinUI 3 packaging of the Windows
-Terminal control) by Mitch Capper — https://github.com/MitchCapper/EasyWindowsTerminalControl
+Terminal control) by Mitch Capper: https://github.com/MitchCapper/EasyWindowsTerminalControl
 Licensed under the MIT License (package license expression: MIT).
 ================================================================
 
 ================================================================
-WinUIEx 2.5.1 — https://github.com/dotMorten/WinUIEx
+WinUIEx 2.5.1: https://github.com/dotMorten/WinUIEx
 ================================================================
 MIT License
 
