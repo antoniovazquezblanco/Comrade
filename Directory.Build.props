@@ -1,0 +1,14 @@
+<Project>
+
+  <!-- Version from git tags (MinVer): tag v0.1.0 builds 0.1.0; commits after it build as
+       pre-releases such as 0.1.1-alpha.0.3. Needs the full history: fetch-depth 0 in CI. -->
+  <PropertyGroup>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

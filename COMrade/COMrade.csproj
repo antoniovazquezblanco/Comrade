@@ -7,7 +7,6 @@
     <RootNamespace>COMrade</RootNamespace>
     <AssemblyName>COMrade</AssemblyName>
     <Product>COMrade</Product>
-    <Version>0.1.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\COMrade.ico</ApplicationIcon>
     <!-- x64 only for now: the terminal control's managed wrapper ships for x64 only
@@ -21,6 +20,9 @@
          so the build output runs on any Windows 10 1809+ machine as-is. -->
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Without it, dotnet publish leaves out COMrade.pri and the .xbf files and the app
+         crashes at startup; it does not package the app as MSIX. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
 
     <TerminalControlVersion>1.0.20-beta.1</TerminalControlVersion>
   </PropertyGroup>
