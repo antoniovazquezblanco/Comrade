@@ -174,7 +174,16 @@ public sealed partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void OnPortSelected(object? sender, PortItemViewModel port) => ViewModel.OpenTab(port.Port);
+    private void OnPortSelected(object? sender, PortItemViewModel port) => Select(port);
+
+    // A port its driver refuses cannot be opened: show how to fix the driver instead.
+    private void Select(PortItemViewModel port)
+    {
+        if (port.NeedsDriverHelp)
+            DriverHelpWindow.Show(port);
+        else
+            ViewModel.OpenTab(port.Port);
+    }
 
     private void OnAddTabButtonClick(TabView sender, object args) => ShowPortMenu();
 
@@ -192,8 +201,10 @@ public sealed partial class MainWindow : Window
         foreach (var port in ViewModel.PortList.Ports)
         {
             var item = new MenuFlyoutItem { Text = port.Title };
+            if (port.NeedsDriverHelp)
+                item.Icon = new FontIcon { Glyph = "\uE7BA" };
             ToolTipService.SetToolTip(item, port.Detail);
-            item.Click += (_, _) => ViewModel.OpenTab(port.Port);
+            item.Click += (_, _) => Select(port);
             menu.Items.Add(item);
         }
 
@@ -274,6 +285,7 @@ public sealed partial class MainWindow : Window
         _closed = true;
         _keyboard.Dispose();
         _messages.Dispose();
+        DriverHelpWindow.CloseIfOpen();
         ViewModel.Tabs.CollectionChanged -= OnTabsChanged;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         foreach (var view in _views.Values)

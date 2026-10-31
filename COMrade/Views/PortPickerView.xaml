@@ -53,6 +53,12 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center" Spacing="2">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon
+                                        VerticalAlignment="Center"
+                                        FontSize="14"
+                                        Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                        Glyph="&#xE7BA;"
+                                        Visibility="{x:Bind NeedsDriverHelp}" />
                                     <TextBlock
                                         FontWeight="SemiBold"
                                         Text="{x:Bind Title}"
@@ -77,14 +83,21 @@
                                 Content="Select"
                                 Style="{StaticResource AccentButtonStyle}"
                                 Tag="{x:Bind}"
-                                Visibility="{x:Bind IsLastUsed}" />
+                                Visibility="{x:Bind ShowMainSelect}" />
                             <Button
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
                                 Click="OnSelectClick"
                                 Content="Select"
                                 Tag="{x:Bind}"
-                                Visibility="{x:Bind IsNotLastUsed}" />
+                                Visibility="{x:Bind ShowSelect}" />
+                            <Button
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Click="OnSelectClick"
+                                Content="Fix driver"
+                                Tag="{x:Bind}"
+                                Visibility="{x:Bind NeedsDriverHelp}" />
                         </Grid>
                     </DataTemplate>
                 </ItemsRepeater.ItemTemplate>

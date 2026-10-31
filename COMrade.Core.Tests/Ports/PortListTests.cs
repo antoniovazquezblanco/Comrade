@@ -108,6 +108,16 @@ public class PortListTests
     }
 
     [Fact]
+    public void Adapters_refused_by_their_driver_come_after_the_usable_ones_of_their_kind()
+    {
+        _list.AddOrUpdate(new PortDevice(@"USB\VID_067B&PID_2303\7&3B613358&0&1", "COM2", "PL2303HXA PHASED OUT SINCE 2012. PLEASE CONTACT YOUR SUPPLIER. (COM2)"));
+        _list.AddOrUpdate(Ch340("COM16"));
+        _list.AddOrUpdate(new PortDevice(@"ACPI\PNP0501\1", "COM1", "Communications Port (COM1)"));
+
+        Assert.Equal(["COM16", "COM2", "COM1"], _list.Ports.Select(port => port.PortName));
+    }
+
+    [Fact]
     public void Rapid_unplug_and_replug_ends_with_the_device_listed_and_events_in_order()
     {
         _list.AddOrUpdate(Ch340("COM5"));

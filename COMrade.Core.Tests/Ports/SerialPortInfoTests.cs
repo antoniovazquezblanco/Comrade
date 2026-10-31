@@ -64,4 +64,22 @@ public class SerialPortInfoTests
 
         Assert.Equal(PortKind.Usb, port?.Kind);
     }
+
+    [Theory]
+    [InlineData("PL2303HXA PHASED OUT SINCE 2012. PLEASE CONTACT YOUR SUPPLIER. (COM25)")]
+    [InlineData("THIS IS NOT PROLIFIC PL2303. PLEASE CONTACT YOUR SUPPLIER. (COM25)")]
+    [InlineData("PL2303TA DO NOT SUPPORT WINDOWS 11 OR LATER, PLEASE CONTACT YOUR SUPPLIER. (COM25)")]
+    public void Prolific_adapters_renamed_by_their_driver_are_refused(string friendlyName)
+    {
+        var port = SerialPortInfo.FromDevice(new PortDevice(@"USB\VID_067B&PID_2303\7&3B613358&0&1", "COM25", friendlyName));
+
+        Assert.True(port?.IsRefusedByDriver);
+    }
+
+    [Fact]
+    public void Working_prolific_adapters_and_other_devices_are_not_refused()
+    {
+        Assert.False(SerialPortInfo.FromDevice(new PortDevice(@"USB\VID_067B&PID_2303\7&3B613358&0&1", "COM26", "Prolific USB-to-Serial Comm Port (COM26)"))?.IsRefusedByDriver);
+        Assert.False(SerialPortInfo.FromDevice(new PortDevice(@"USB\VID_1A86&PID_7523\5&2F3C1B2&0&3", "COM5", "PLEASE CONTACT YOUR SUPPLIER (COM5)"))?.IsRefusedByDriver);
+    }
 }

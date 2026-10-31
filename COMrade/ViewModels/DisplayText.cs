@@ -28,6 +28,21 @@ public static class DisplayText
         _ => "Virtual",
     };
 
+    /// <summary>
+    /// Readable name for a Prolific adapter its driver refused, e.g. "Prolific PL2303HXA" instead of
+    /// "PL2303HXA PHASED OUT SINCE 2012. PLEASE CONTACT YOUR SUPPLIER.".
+    /// </summary>
+    public static string RefusedAdapterName(SerialPortInfo port)
+    {
+        foreach (var word in port.Description.Split(' ', '.', ','))
+        {
+            if (word.StartsWith("PL2303", StringComparison.OrdinalIgnoreCase) && word.Length > "PL2303".Length)
+                return $"Prolific {word.ToUpperInvariant()}";
+        }
+
+        return "Prolific PL2303";
+    }
+
     public static string Bytes(long count) => count switch
     {
         < 1024 => $"{count} B",

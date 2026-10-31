@@ -17,7 +17,10 @@ public sealed class PortList
 
     public event EventHandler? EnumerationCompleted;
 
-    /// <summary>Current ports: USB first and Bluetooth last (<see cref="PortKind"/>), then by COM number.</summary>
+    /// <summary>
+    /// Current ports: USB first and Bluetooth last (<see cref="PortKind"/>), adapters refused by their
+    /// driver after the usable ones of their kind, then by COM number.
+    /// </summary>
     public IReadOnlyList<SerialPortInfo> Ports
     {
         get
@@ -26,6 +29,7 @@ public sealed class PortList
             {
                 return _ports.Values
                     .OrderBy(port => port.Kind)
+                    .ThenBy(port => port.IsRefusedByDriver)
                     .ThenBy(port => port.PortNumber)
                     .ThenBy(port => port.DeviceId, StringComparer.OrdinalIgnoreCase)
                     .ToList();
