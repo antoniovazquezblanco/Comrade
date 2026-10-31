@@ -37,13 +37,13 @@
                                 TextWrapping="Wrap" />
                         </StackPanel>
                         <RadioButton
-                            Content="Scrolling: every tab keeps its full title and the tab strip scrolls"
-                            GroupName="TabMode"
-                            IsChecked="{x:Bind ViewModel.IsScrollingTabs, Mode=TwoWay}" />
-                        <RadioButton
                             Content="Compact: only the selected tab shows its full title, the others show their port"
                             GroupName="TabMode"
                             IsChecked="{x:Bind ViewModel.IsCompactTabs, Mode=TwoWay}" />
+                        <RadioButton
+                            Content="Scrolling: every tab keeps its full title and the tab strip scrolls"
+                            GroupName="TabMode"
+                            IsChecked="{x:Bind ViewModel.IsScrollingTabs, Mode=TwoWay}" />
                     </StackPanel>
                 </Border>
 
