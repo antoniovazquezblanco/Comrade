@@ -15,6 +15,8 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
 using Windows.Graphics;
 using Windows.System;
 using WinUIEx.Messaging;
@@ -36,7 +38,10 @@ public sealed partial class MainWindow : Window
     private const int WMSZ_BOTTOM = 6;
     private const int WMSZ_BOTTOMLEFT = 7;
 
-    private readonly PortWatcher _watcher;
+    // Marks COMrade's own tab drags; the tab itself is in WindowManager.DraggedTab.
+    private const string TabDragFormat = "COMradeTab";
+
+    private readonly WindowManager _windows;
     private readonly ThreadKeyboardHook _keyboard;
     private readonly WindowMessageMonitor _messages;
     private const VirtualKey Comma = (VirtualKey)0xBC;
@@ -44,10 +49,10 @@ public sealed partial class MainWindow : Window
     private readonly Dictionary<TabViewModel, FrameworkElement> _views = [];
     private bool _closed;
 
-    public MainWindow(MainViewModel viewModel, PortWatcher watcher)
+    public MainWindow(MainViewModel viewModel, WindowManager windows)
     {
         ViewModel = viewModel;
-        _watcher = watcher;
+        _windows = windows;
         InitializeComponent();
 
         ExtendsContentIntoTitleBar = true;
@@ -71,8 +76,6 @@ public sealed partial class MainWindow : Window
         ViewModel.Tabs.CollectionChanged += OnTabsChanged;
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         Closed += OnClosed;
-
-        _watcher.Start();
     }
 
     public MainViewModel ViewModel { get; }
@@ -97,7 +100,8 @@ public sealed partial class MainWindow : Window
     // devices use (Ctrl+T, Ctrl+W, Ctrl+C...), so it must reach the terminal.
     private bool OnShortcut(VirtualKey key, bool shift)
     {
-        if (_closed)
+        // Every window of the app hooks the same thread: only the one in front takes the keys.
+        if (_closed || GetForegroundWindow() != WinRT.Interop.WindowNative.GetWindowHandle(this))
             return false;
 
         var selected = SelectedView as DeviceTabView;
@@ -181,12 +185,13 @@ public sealed partial class MainWindow : Window
 
     private void OnPortSelected(object? sender, PortItemViewModel port) => Select(port);
 
-    // A port its driver refuses cannot be opened: show how to fix the driver instead.
+    // A port its driver refuses cannot be opened: show how to fix the driver instead. A device has
+    // one tab at most, and another window may already show it.
     private void Select(PortItemViewModel port)
     {
         if (port.NeedsDriverHelp)
             DriverHelpWindow.Show(port);
-        else
+        else if (!_windows.ShowExisting(port.Port.Identity))
             ViewModel.OpenTab(port.Port);
     }
 
@@ -223,7 +228,7 @@ public sealed partial class MainWindow : Window
         await ViewModel.CloseTabAsync((TabViewModel)args.Item);
 
     private async void OnCloseTabClick(object sender, RoutedEventArgs e) =>
-        await ViewModel.CloseTabAsync((DeviceTabViewModel)((FrameworkElement)sender).Tag);
+        await ViewModel.CloseTabAsync((TabViewModel)((FrameworkElement)sender).Tag);
 
     // Renaming: double-click a tab title, or Rename tab in its context menu.
     private void OnTabDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -280,6 +285,71 @@ public sealed partial class MainWindow : Window
     {
         if (ViewModel.SelectedTab is { } tab && _views.TryGetValue(tab, out var view) && view is DeviceTabView device)
             device.FocusTerminal();
+    }
+
+    private void OnMoveToNewWindowClick(object sender, RoutedEventArgs e) =>
+        _windows.MoveToNewWindow((DeviceTabViewModel)((FrameworkElement)sender).Tag);
+
+    // Dragging tabs between windows, as in Windows Terminal: drop on another window's tab strip to
+    // move the tab there, or anywhere else to give it a window of its own. Reordering within the
+    // window is TabView's own.
+    private void OnTabDragStarting(TabView sender, TabViewTabDragStartingEventArgs args)
+    {
+        // The settings tab stays in its window.
+        if (args.Item is not DeviceTabViewModel tab)
+        {
+            args.Cancel = true;
+            return;
+        }
+
+        _windows.DraggedTab = tab;
+        args.Data.Properties.Add(TabDragFormat, true);
+        args.Data.RequestedOperation = DataPackageOperation.Move;
+    }
+
+    private void OnTabStripDragOver(object sender, DragEventArgs e)
+    {
+        if (IsTabFromAnotherWindow(e))
+            e.AcceptedOperation = DataPackageOperation.Move;
+    }
+
+    private void OnTabStripDrop(object sender, DragEventArgs e)
+    {
+        if (!IsTabFromAnotherWindow(e) || _windows.DraggedTab is not { } tab)
+            return;
+
+        _windows.DraggedTab = null;
+        _windows.Move(tab, this, DropIndex(e.GetPosition(Tabs)));
+    }
+
+    private bool IsTabFromAnotherWindow(DragEventArgs e) =>
+        e.DataView.Properties.ContainsKey(TabDragFormat) && _windows.DraggedTab is { } tab && !ViewModel.Tabs.Contains(tab);
+
+    private void OnTabDroppedOutside(TabView sender, TabViewTabDroppedOutsideEventArgs args)
+    {
+        // Dropped on another window's tab strip: already moved there.
+        if (args.Item is not DeviceTabViewModel tab || !ViewModel.Tabs.Contains(tab))
+            return;
+
+        GetCursorPos(out var cursor);
+        _windows.MoveToNewWindow(tab, new PointInt32(cursor.X - 120, cursor.Y - 16));
+    }
+
+    private void OnTabDragCompleted(TabView sender, TabViewTabDragCompletedEventArgs args) => _windows.DraggedTab = null;
+
+    // Where a dropped tab goes: before the first tab whose middle is right of the drop point.
+    private int DropIndex(Point position)
+    {
+        for (var index = 0; index < ViewModel.Tabs.Count; index++)
+        {
+            if (Tabs.ContainerFromIndex(index) is not FrameworkElement item)
+                continue;
+            var left = item.TransformToVisual(Tabs).TransformPoint(new Point(0, 0)).X;
+            if (position.X < left + item.ActualWidth / 2)
+                return index;
+        }
+
+        return ViewModel.Tabs.Count;
     }
 
     // Each tab's contents are created once and only hidden while another tab is selected.
@@ -358,14 +428,18 @@ public sealed partial class MainWindow : Window
         _closed = true;
         _keyboard.Dispose();
         _messages.Dispose();
-        DriverHelpWindow.CloseIfOpen();
         ViewModel.Tabs.CollectionChanged -= OnTabsChanged;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         foreach (var view in _views.Values)
             (view as IDisposable)?.Dispose();
-        ViewModel.PortList.Dispose();
-        _watcher.Dispose();
 
         await ViewModel.CloseAllAsync();
     }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out PointInt32 point);
 }

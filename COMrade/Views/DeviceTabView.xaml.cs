@@ -1,6 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.Text;
 using COMrade.Core.Sessions;
 using COMrade.Terminal;
 using COMrade.ViewModels;
@@ -20,7 +19,7 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         ViewModel = viewModel;
         InitializeComponent();
 
-        _terminal = new DeviceTerminal(viewModel.Session, Terminal, viewModel.Settings.Terminal);
+        _terminal = new DeviceTerminal(viewModel.Session, Terminal, viewModel.Settings.Terminal, viewModel.History);
         viewModel.TerminalSettingsChanged += OnTerminalSettingsChanged;
         viewModel.TerminalMessage += OnTerminalMessage;
         viewModel.ClearRequested += OnClearRequested;
@@ -52,9 +51,9 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
 
     private void OnTerminalSettingsChanged(object? sender, EventArgs e) => _terminal.Settings = ViewModel.Settings.Terminal;
 
-    private void OnTerminalMessage(object? sender, string message) => Terminal.Write(Encoding.UTF8.GetBytes(message));
+    private void OnTerminalMessage(object? sender, string message) => _terminal.Show(message);
 
-    private void OnClearRequested(object? sender, EventArgs e) => Terminal.Clear();
+    private void OnClearRequested(object? sender, EventArgs e) => _terminal.Clear();
 
     // Typing can start as soon as the port opens.
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
