@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using COMrade.Core.Ports;
+using COMrade.Core.Settings;
 using COMrade.Core.Terminal;
 using COMrade.ViewModels;
 using COMrade.Views;
@@ -42,6 +43,7 @@ public sealed partial class MainWindow : Window
     private const string TabDragFormat = "COMradeTab";
 
     private readonly WindowManager _windows;
+    private readonly AppSettingsStore _settings;
     private readonly ThreadKeyboardHook _keyboard;
     private readonly WindowMessageMonitor _messages;
     private const VirtualKey Comma = (VirtualKey)0xBC;
@@ -49,10 +51,11 @@ public sealed partial class MainWindow : Window
     private readonly Dictionary<TabViewModel, FrameworkElement> _views = [];
     private bool _closed;
 
-    public MainWindow(MainViewModel viewModel, WindowManager windows)
+    public MainWindow(MainViewModel viewModel, WindowManager windows, AppSettingsStore settings)
     {
         ViewModel = viewModel;
         _windows = windows;
+        _settings = settings;
         InitializeComponent();
 
         ExtendsContentIntoTitleBar = true;
@@ -375,7 +378,7 @@ public sealed partial class MainWindow : Window
                 continue;
             FrameworkElement view = tab switch
             {
-                DeviceTabViewModel device => new DeviceTabView(device),
+                DeviceTabViewModel device => new DeviceTabView(device, _settings),
                 SettingsTabViewModel settings => new SettingsView(settings),
                 _ => throw new InvalidOperationException($"No view for {tab.GetType().Name}."),
             };
