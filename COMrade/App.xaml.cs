@@ -23,6 +23,7 @@ public partial class App : Application
         {
             UnhandledException += (_, e) => System.IO.File.AppendAllText(diag, $"UI {e.Exception}{Environment.NewLine}");
             AppDomain.CurrentDomain.UnhandledException += (_, e) => System.IO.File.AppendAllText(diag, $"DOMAIN {e.ExceptionObject}{Environment.NewLine}");
+            AppDomain.CurrentDomain.FirstChanceException += (_, e) => System.IO.File.AppendAllText(diag, $"FIRST {e.Exception.GetType().Name}: {e.Exception.Message}{Environment.NewLine}{Environment.StackTrace}{Environment.NewLine}");
             System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) => System.IO.File.AppendAllText(diag, $"TASK {e.Exception}{Environment.NewLine}");
         }
     }

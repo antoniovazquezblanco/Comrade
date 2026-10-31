@@ -33,16 +33,12 @@ public sealed partial class PortListViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<PortItemViewModel> Ports { get; } = [];
 
-    public bool HasPorts => Ports.Count > 0;
+    public bool HasNoPorts => Ports.Count == 0;
 
-    public string Summary => !_enumerated
-        ? "Looking for serial ports…"
-        : Ports.Count switch
-        {
-            0 => "No serial ports found · plug in an adapter and it will appear here",
-            1 => "1 port found · the list updates as devices are plugged in or removed",
-            var count => $"{count} ports found · the list updates as devices are plugged in or removed",
-        };
+    /// <summary>Shown instead of the list while there are no ports.</summary>
+    public string NoPortsMessage => _enumerated
+        ? "No serial ports found · plug in an adapter and it will appear here"
+        : "Looking for serial ports…";
 
     /// <summary>Refreshes the "last used" details after a device's settings were saved.</summary>
     public void Refresh() => Rebuild();
@@ -91,7 +87,7 @@ public sealed partial class PortListViewModel : ObservableObject, IDisposable
             Ports.Add(new PortItemViewModel(port, detail, isNew, device is not null && device == lastUsed));
         }
 
-        OnPropertyChanged(nameof(HasPorts));
-        OnPropertyChanged(nameof(Summary));
+        OnPropertyChanged(nameof(HasNoPorts));
+        OnPropertyChanged(nameof(NoPortsMessage));
     }
 }

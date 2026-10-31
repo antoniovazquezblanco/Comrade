@@ -28,9 +28,10 @@
                 <TextBlock
                     HorizontalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Text="{x:Bind ViewModel.Summary, Mode=OneWay}"
+                    Text="{x:Bind ViewModel.NoPortsMessage, Mode=OneWay}"
                     TextAlignment="Center"
-                    TextWrapping="Wrap" />
+                    TextWrapping="Wrap"
+                    Visibility="{x:Bind ViewModel.HasNoPorts, Mode=OneWay}" />
             </StackPanel>
 
             <ItemsRepeater ItemsSource="{x:Bind ViewModel.Ports}">
