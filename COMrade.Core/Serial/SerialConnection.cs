@@ -80,7 +80,11 @@ public sealed class SerialConnection : ISerialConnection
         var length = Math.Min(buffer.Length, _readBuffer.Length);
         while (true)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            // Cancelled reads return nothing rather than throw: closing the port is the normal
+            // way a session ends, and an exception leaving this thread stops the debugger.
+            if (cancellationToken.IsCancellationRequested)
+                return 0;
+
             try
             {
                 var count = _port.Read(_readBuffer, 0, length);
@@ -99,6 +103,11 @@ public sealed class SerialConnection : ISerialConnection
             catch (TimeoutException)
             {
                 // Nothing arrived during this poll; check for cancellation and wait again.
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // The session closed the port while this read was waiting.
+                return 0;
             }
             catch (Exception ex) when (SerialPortErrors.IsPortFailure(ex))
             {
