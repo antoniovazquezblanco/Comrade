@@ -45,7 +45,8 @@ From the [latest release](https://github.com/antoniovazquezblanco/Comrade/releas
 - `COMrade-<version>-win-x64.zip`: A portable copy. Unzip it anywhere and run `COMrade.exe`.
 
 Both include .NET and the Windows App SDK. Each file has a Sigstore signature (`.sigstore.json`) made
-by the release workflow.
+by the release workflow, and each release has SLSA build provenance (`.intoto.jsonl`); see
+[SECURITY.md](SECURITY.md#checking-a-download) for how to check a download.
 
 Requirements: Windows 10 version 1809 or later, x64.
 
