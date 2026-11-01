@@ -7,6 +7,9 @@
   <PropertyGroup>
     <OutputName>COMrade</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
+    <!-- Always bin\<configuration>\en-US\COMrade.msi: CI runners set PLATFORM, which would add a
+         platform folder. -->
+    <OutputPath>bin\$(Configuration)\</OutputPath>
     <AppFolder Condition="'$(AppFolder)' == ''">..\publish\COMrade</AppFolder>
     <ProductVersion Condition="'$(ProductVersion)' == ''">0.0.0</ProductVersion>
     <AppFolderFull>$([System.IO.Path]::GetFullPath('$(AppFolder)'))</AppFolderFull>
