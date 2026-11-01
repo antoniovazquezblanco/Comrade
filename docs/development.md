@@ -21,6 +21,22 @@ A self-contained build, like the one in the releases:
 dotnet publish COMrade/COMrade.csproj -c Release -p:Platform=x64 -p:SelfContained=true -o publish/COMrade
 ```
 
+The installer packs that build into an MSI (WiX 5) that installs either just for the current user
+or, with administrator rights, for every user. It is not built with the solution, as it needs the
+published app; the version must be plain numbers. The MSI lands in
+`COMrade.Installer/bin/Release/en-US/`:
+
+```powershell
+dotnet build COMrade.Installer -c Release -p:AppFolder="$PWD/publish/COMrade" -p:ProductVersion=0.3.0
+```
+
+Unattended, `msiexec /i COMrade.msi /qn` installs for the current user and adds `ALLUSERS=1` to
+install for every user (from an administrator prompt).
+
+Visual Studio opens the installer project with FireGiant's free HeatWave extension (Extensions >
+Manage Extensions, search for HeatWave). Without it the project shows as incompatible, and the rest
+of the solution works as usual.
+
 ## Tests
 
 Unit tests, no hardware needed:
@@ -49,3 +65,4 @@ dotnet test --project COMrade.IntegrationTests
 | `COMrade.Core` | No UI: port discovery and device identity, serial connection, port sessions with automatic reopen, settings stores, terminal line endings |
 | `COMrade.Core.Tests` | xUnit unit tests with fakes and a fake clock |
 | `COMrade.IntegrationTests` | Tests against real serial ports |
+| `COMrade.Installer` | Per-user MSI installer of the self-contained build |
