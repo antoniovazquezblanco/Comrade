@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -121,6 +122,65 @@ public sealed partial class SettingsTabViewModel : TabViewModel
     public IReadOnlyList<Color> PreviewPalette => [.. Appearance.Scheme.Palette.Select(ToColor)];
 
     private TerminalAppearance Appearance => _settings.Current.TerminalOrDefault;
+
+    // Logging: where and how sessions are logged.
+
+    /// <summary>The log folder; empty for the default one, shown as the placeholder.</summary>
+    public string LogFolder
+    {
+        get => Logging.Folder ?? string.Empty;
+        set => SaveLogging(Logging with { Folder = string.IsNullOrWhiteSpace(value) ? null : value.Trim() });
+    }
+
+    public string DefaultLogFolder => LogSettings.DefaultFolder;
+
+    public bool LogTimestamps
+    {
+        get => Logging.Timestamps;
+        set => SaveLogging(Logging with { Timestamps = value });
+    }
+
+    public bool LogKeepColourCodes
+    {
+        get => Logging.KeepColourCodes;
+        set => SaveLogging(Logging with { KeepColourCodes = value });
+    }
+
+    public bool LogWhenPortOpens
+    {
+        get => Logging.StartWhenPortOpens;
+        set => SaveLogging(Logging with { StartWhenPortOpens = value });
+    }
+
+    public bool LogAskWhereToSave
+    {
+        get => Logging.AskWhereToSave;
+        set => SaveLogging(Logging with { AskWhereToSave = value });
+    }
+
+    [RelayCommand]
+    private void OpenLogFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(Logging.FolderOrDefault);
+            Process.Start(new ProcessStartInfo(Logging.FolderOrDefault) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Win32Exception)
+        {
+            // The folder cannot be created or opened; logging will report it when it starts.
+        }
+    }
+
+    private LogSettings Logging => _settings.Current.LoggingOrDefault;
+
+    private void SaveLogging(LogSettings logging)
+    {
+        if (logging == Logging)
+            return;
+        _settings.Save(_settings.Current with { Logging = logging });
+        OnPropertyChanged(string.Empty);
+    }
 
     /// <summary>Settings for a device COMrade has not seen before.</summary>
     public DeviceSettingsEditor NewDevice { get; }

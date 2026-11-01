@@ -80,4 +80,18 @@ public class TerminalHistoryTests
 
         Assert.Equal(2000, shown.Sum(chunk => chunk.Length));
     }
+
+    [Fact]
+    public void Everything_shown_is_also_reported_in_order_for_a_log()
+    {
+        var history = new TerminalHistory();
+        var logged = new List<byte[]>();
+        history.Written += (_, data) => logged.Add(data);
+
+        history.Write("one\r\n"u8);
+        history.Detach();
+        history.Write("two\r\n"u8);
+
+        Assert.Equal("one\r\ntwo\r\n", Text(logged));
+    }
 }

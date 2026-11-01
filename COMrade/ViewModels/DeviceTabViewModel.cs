@@ -1,7 +1,12 @@
 using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
+using COMrade.Core.Logging;
 using COMrade.Core.Serial;
 using COMrade.Core.Sessions;
 using COMrade.Core.Settings;
@@ -33,12 +38,16 @@ public sealed partial class DeviceTabViewModel : TabViewModel
     private DateTimeOffset? _disconnectedAt;
     private DateTimeOffset? _waitingSince;
     private string? _portNameAtDisconnect;
+    private readonly AppSettingsStore _appSettings;
+    private SessionLog? _log;
+    private string? _logError;
 
-    public DeviceTabViewModel(PortSession session, DeviceSettings settings, DeviceSettingsStore store, TimeProvider? time = null)
+    public DeviceTabViewModel(PortSession session, DeviceSettings settings, DeviceSettingsStore store, AppSettingsStore appSettings, TimeProvider? time = null)
     {
         Session = session;
         Editor = new DeviceSettingsEditor(settings, ApplyAsync);
         _store = store;
+        _appSettings = appSettings;
         _ui = DispatcherQueue.GetForCurrentThread();
         _time = time ?? TimeProvider.System;
         _state = session.State;
@@ -51,6 +60,8 @@ public sealed partial class DeviceTabViewModel : TabViewModel
         _clock.Interval = TimeSpan.FromSeconds(1);
         _clock.Tick += (_, _) => RefreshStatus();
         _clock.Start();
+
+        History.Written += OnHistoryWritten;
     }
 
     /// <summary>A line to show in the terminal, such as the reconnect marker. Raised on the UI thread.</summary>
@@ -210,8 +221,118 @@ public sealed partial class DeviceTabViewModel : TabViewModel
     [RelayCommand]
     private void Clear() => ClearRequested?.Invoke(this, EventArgs.Empty);
 
+    // Logging: what the terminal shows, to a file, while the toolbar's Log is on.
+
+    public bool IsLogging
+    {
+        get => _log is not null;
+        set
+        {
+            if (value)
+                _ = StartLogAsync();
+            else
+                StopLog();
+        }
+    }
+
+    /// <summary>
+    /// Asks where to save a log, given the suggested file name and folder; null when cancelled.
+    /// Set by the view, which owns the window the dialog belongs to.
+    /// </summary>
+    public Func<string, string, Task<string?>>? PickLogFile { get; set; }
+
+    /// <summary>For example "Logging to COM5-2026-11-01_12-34-56.log · 12.0 KB".</summary>
+    public string LogText => _log is { } log ? $"Logging to {Path.GetFileName(log.Path)} · {DisplayText.Bytes(log.Length)}" : string.Empty;
+
+    public bool ShowLogErrorBar
+    {
+        get => _logError is not null;
+        set
+        {
+            if (!value && _logError is not null)
+            {
+                _logError = null;
+                OnPropertyChanged(nameof(ShowLogErrorBar));
+            }
+        }
+    }
+
+    public string LogError => _logError ?? string.Empty;
+
+    [RelayCommand]
+    private void OpenLogFolder()
+    {
+        if (_log is null)
+            return;
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{_log.Path}\"") { UseShellExecute = true });
+        }
+        catch (Win32Exception)
+        {
+            // Explorer could not be started; the status bar still names the file.
+        }
+    }
+
+    // Turned on from the toolbar: asks for the file first when the settings say so.
+    private async Task StartLogAsync()
+    {
+        var settings = _appSettings.Current.LoggingOrDefault;
+        if (_log is not null || !settings.AskWhereToSave || PickLogFile is null)
+        {
+            StartLog();
+            return;
+        }
+
+        var path = await PickLogFile(SessionLog.FileName(Name ?? PortName), settings.FolderOrDefault);
+        if (path is null || _log is not null)
+        {
+            // Cancelled: the Log button goes back to off.
+            OnPropertyChanged(nameof(IsLogging));
+            return;
+        }
+
+        StartLog(path);
+    }
+
+    // Into the given file, or a new one in the log folder.
+    private void StartLog(string? path = null)
+    {
+        if (_log is not null)
+            return;
+
+        var settings = _appSettings.Current.LoggingOrDefault;
+        try
+        {
+            _log = path is null ? SessionLog.Start(Name ?? PortName, settings) : SessionLog.StartAt(path, settings);
+            _logError = null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logError = path is null
+                ? $"COMrade could not create a log file in {settings.FolderOrDefault}: {ex.Message} Choose another folder in the settings."
+                : $"COMrade could not write the log to {path}: {ex.Message} Choose another file.";
+        }
+
+        OnPropertyChanged(string.Empty);
+    }
+
+    private void StopLog()
+    {
+        if (_log is not { } log)
+            return;
+        _log = null;
+        log.Dispose();
+        OnPropertyChanged(string.Empty);
+    }
+
+    // History events arrive on whichever thread wrote the output.
+    private void OnHistoryWritten(object? sender, byte[] data) => Volatile.Read(ref _log)?.Write(data);
+
     public override void Dispose()
     {
+        History.Written -= OnHistoryWritten;
+        StopLog();
         _clock.Stop();
         Session.StateChanged -= OnSessionChanged;
         Session.PortChanged -= OnSessionChanged;
@@ -263,7 +384,14 @@ public sealed partial class DeviceTabViewModel : TabViewModel
         }
 
         if (_state is PortSessionState.Closed)
+        {
             _disconnectedAt = null;
+            StopLog();
+        }
+
+        if (_state is PortSessionState.Open && previous is not PortSessionState.Open
+            && _appSettings.Current.LoggingOrDefault.StartWhenPortOpens)
+            StartLog();
 
         if (_state is not PortSessionState.Waiting)
             _waitingSince = null;
@@ -287,5 +415,6 @@ public sealed partial class DeviceTabViewModel : TabViewModel
         OnPropertyChanged(nameof(ShowWaitingBar));
         OnPropertyChanged(nameof(ReceivedText));
         OnPropertyChanged(nameof(SentText));
+        OnPropertyChanged(nameof(LogText));
     }
 }

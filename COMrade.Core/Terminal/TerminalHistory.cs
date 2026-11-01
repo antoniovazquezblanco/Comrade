@@ -15,6 +15,9 @@ public sealed class TerminalHistory(int limit = TerminalHistory.DefaultLimit)
     private readonly List<byte> _bytes = [];
     private Action<byte[]>? _output;
 
+    /// <summary>Everything written, in order, as it is shown; e.g. for a log. Raised on the writer's thread.</summary>
+    public event EventHandler<byte[]>? Written;
+
     /// <summary>Kept bytes, oldest first.</summary>
     public int Length
     {
@@ -54,7 +57,9 @@ public sealed class TerminalHistory(int limit = TerminalHistory.DefaultLimit)
         {
             _bytes.AddRange(data);
             Trim();
-            _output?.Invoke(data.ToArray());
+            var copy = data.ToArray();
+            _output?.Invoke(copy);
+            Written?.Invoke(this, copy);
         }
     }
 

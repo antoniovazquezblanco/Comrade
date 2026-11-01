@@ -57,6 +57,15 @@
                     <TextBlock Text="Clear" />
                 </StackPanel>
             </Button>
+            <ToggleButton
+                AutomationProperties.Name="Log"
+                IsChecked="{x:Bind ViewModel.IsLogging, Mode=TwoWay}"
+                ToolTipService.ToolTip="Log this session to a file">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontSize="14" Glyph="&#xE7C8;" />
+                    <TextBlock Text="Log" />
+                </StackPanel>
+            </ToggleButton>
         </StackPanel>
 
         <!-- Bars, in their own row: nothing may be drawn over the terminal. -->
@@ -86,6 +95,11 @@
                 IsOpen="{x:Bind ViewModel.ShowSettingsRejectedBar, Mode=TwoWay}"
                 Message="The port keeps its previous settings. Try another speed or frame setting."
                 Severity="Warning" />
+            <InfoBar
+                Title="Logging could not start"
+                IsOpen="{x:Bind ViewModel.ShowLogErrorBar, Mode=TwoWay}"
+                Message="{x:Bind ViewModel.LogError, Mode=OneWay}"
+                Severity="Error" />
         </StackPanel>
 
         <controls:TerminalView
@@ -113,6 +127,27 @@
                     </Ellipse.Fill>
                 </Ellipse>
                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
+            </StackPanel>
+            <StackPanel
+                Grid.Column="1"
+                HorizontalAlignment="Right"
+                Orientation="Horizontal"
+                Spacing="8"
+                Visibility="{x:Bind ViewModel.IsLogging, Mode=OneWay}">
+                <Ellipse
+                    Width="8"
+                    Height="8"
+                    VerticalAlignment="Center"
+                    Fill="{ThemeResource SystemFillColorCriticalBrush}" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind ViewModel.LogText, Mode=OneWay}" />
+                <HyperlinkButton
+                    Padding="4,0"
+                    Command="{x:Bind ViewModel.OpenLogFolderCommand}"
+                    Content="Open folder"
+                    FontSize="12" />
             </StackPanel>
             <TextBlock
                 Grid.Column="2"
