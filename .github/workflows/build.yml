@@ -33,6 +33,13 @@ jobs:
       - name: Build
         run: dotnet build COMrade.slnx -c Release -p:Platform=${{ matrix.platform }}
 
+      # The solution build already built the tests, before anything is published or packaged.
+      - name: Test
+        run: dotnet test --project COMrade.Core.Tests -c Release --no-build
+
+      - name: Integration tests
+        run: dotnet test --project COMrade.IntegrationTests -c Release --no-build
+
       - name: Publish
         run: dotnet publish COMrade/COMrade.csproj -c Release -p:Platform=${{ matrix.platform }} -p:SelfContained=true -o publish/COMrade
 
@@ -65,29 +72,9 @@ jobs:
             dist/*.zip
             dist/*.msi
 
-  test:
-    name: Test
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Test
-        run: dotnet test --project COMrade.Core.Tests -c Release
-
-      - name: Integration tests
-        run: dotnet test --project COMrade.IntegrationTests -c Release
-
   release:
     name: Release
-    needs: [build, test]
+    needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
