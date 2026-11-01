@@ -4,7 +4,7 @@ using COMrade.Core.Serial;
 namespace COMrade.Core.Tests.Fakes;
 
 /// <summary>Simulated open serial port: the test feeds received bytes, failures and close behaviour.</summary>
-internal sealed class FakeSerialConnection(string portName, SerialSettings settings, bool hangOnClose) : ISerialConnection
+internal sealed class FakeSerialConnection(string portName, SerialSettings settings, ControlLines lines, bool hangOnClose) : ISerialConnection
 {
     private readonly Channel<byte[]> _incoming = Channel.CreateUnbounded<byte[]>();
     private readonly List<byte> _written = [];
@@ -12,6 +12,15 @@ internal sealed class FakeSerialConnection(string portName, SerialSettings setti
     public string PortName { get; } = portName;
 
     public SerialSettings Settings { get; private set; } = settings;
+
+    /// <summary>DTR and RTS as last set, starting with those the port opened with.</summary>
+    public ControlLines Lines { get; private set; } = lines;
+
+    public List<TimeSpan> Breaks { get; } = [];
+
+    public event EventHandler? ModemLinesChanged;
+
+    public ModemLines ModemLines { get; private set; }
 
     public bool RejectSettings { get; set; }
 
@@ -30,6 +39,13 @@ internal sealed class FakeSerialConnection(string portName, SerialSettings setti
 
     /// <summary>Simulates bytes arriving from the device.</summary>
     public void Receive(params byte[] data) => _incoming.Writer.TryWrite(data);
+
+    /// <summary>Simulates the device changing its input lines.</summary>
+    public void ChangeModemLines(ModemLines lines)
+    {
+        ModemLines = lines;
+        ModemLinesChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>Simulates the port failing while a read is waiting.</summary>
     public void Fail(SerialPortError error) =>
@@ -65,6 +81,21 @@ internal sealed class FakeSerialConnection(string portName, SerialSettings setti
         if (RejectSettings)
             throw new SerialPortException(SerialPortError.InvalidSettings, $"{PortName}: settings rejected");
         Settings = settings;
+    }
+
+    public void SetControlLines(ControlLines lines)
+    {
+        if (FailWrites)
+            throw new SerialPortException(SerialPortError.DeviceRemoved, $"{PortName}: setting the lines failed");
+        Lines = lines;
+    }
+
+    public Task SendBreakAsync(TimeSpan duration, CancellationToken cancellationToken)
+    {
+        if (FailWrites)
+            throw new SerialPortException(SerialPortError.DeviceRemoved, $"{PortName}: break failed");
+        Breaks.Add(duration);
+        return Task.CompletedTask;
     }
 
     public ValueTask DisposeAsync()

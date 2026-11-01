@@ -86,6 +86,79 @@ public class PortSessionTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Ports_open_with_dtr_on_and_rts_off()
+    {
+        await _session.OpenAsync();
+
+        Assert.Equal(new ControlLines(Dtr: true, Rts: false), _driver.Current.Lines);
+    }
+
+    [Fact]
+    public async Task Control_lines_set_while_closed_apply_when_the_port_opens()
+    {
+        Assert.True(await _session.SetControlLinesAsync(new ControlLines(Dtr: false, Rts: true)));
+
+        await _session.OpenAsync();
+
+        Assert.Equal(new ControlLines(Dtr: false, Rts: true), _driver.Current.Lines);
+    }
+
+    [Fact]
+    public async Task Control_lines_are_kept_when_the_device_comes_back()
+    {
+        await _session.OpenAsync();
+        await _session.SetControlLinesAsync(new ControlLines(Dtr: false, Rts: false));
+        Assert.Equal(new ControlLines(Dtr: false, Rts: false), _driver.Current.Lines);
+
+        await UnplugAsync(Ch340Id);
+        await PlugAsync(Ch340("COM5"));
+
+        Assert.Equal(2, _driver.Connections.Count);
+        Assert.Equal(new ControlLines(Dtr: false, Rts: false), _driver.Current.Lines);
+    }
+
+    [Fact]
+    public async Task Failing_to_set_the_lines_is_a_lost_connection()
+    {
+        await _session.OpenAsync();
+        _driver.Current.FailWrites = true;
+
+        Assert.False(await _session.SetControlLinesAsync(new ControlLines(Dtr: false, Rts: false)));
+
+        Assert.NotEqual(PortSessionState.Open, _session.State);
+        Assert.Equal(new ControlLines(Dtr: false, Rts: false), _session.ControlLines);
+    }
+
+    [Fact]
+    public async Task Break_reaches_the_open_port()
+    {
+        Assert.False(await _session.SendBreakAsync(TimeSpan.FromMilliseconds(250)));
+        await _session.OpenAsync();
+
+        Assert.True(await _session.SendBreakAsync(TimeSpan.FromMilliseconds(250)));
+
+        Assert.Equal([TimeSpan.FromMilliseconds(250)], _driver.Current.Breaks);
+    }
+
+    [Fact]
+    public async Task Modem_line_changes_of_the_open_port_are_reported()
+    {
+        var changes = 0;
+        _session.ModemLinesChanged += (_, _) => Interlocked.Increment(ref changes);
+        await _session.OpenAsync();
+        var first = _driver.Current;
+
+        first.ChangeModemLines(ModemLines.Cts | ModemLines.Dsr);
+        Assert.Equal(ModemLines.Cts | ModemLines.Dsr, _session.ModemLines);
+
+        await _session.CloseAsync();
+        first.ChangeModemLines(ModemLines.None);
+
+        Assert.Equal(1, changes);
+        Assert.Equal(ModemLines.None, _session.ModemLines);
+    }
+
+    [Fact]
     public async Task Close_closes_the_port()
     {
         await _session.OpenAsync();

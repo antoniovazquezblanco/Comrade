@@ -18,4 +18,16 @@ public interface ISerialConnection : IAsyncDisposable
 
     /// <summary>Changes the line settings of the open port; on failure the previous settings stay in effect.</summary>
     void ApplySettings(SerialSettings settings);
+
+    /// <summary>The input lines the device drives now.</summary>
+    ModemLines ModemLines { get; }
+
+    /// <summary>An input line changed; read <see cref="ModemLines"/>. May be raised on any thread.</summary>
+    event EventHandler? ModemLinesChanged;
+
+    /// <summary>Sets DTR and RTS. RTS is left alone while RTS/CTS flow control drives it.</summary>
+    void SetControlLines(ControlLines lines);
+
+    /// <summary>Holds the transmit line in the break state for <paramref name="duration"/>.</summary>
+    Task SendBreakAsync(TimeSpan duration, CancellationToken cancellationToken);
 }

@@ -15,9 +15,8 @@ namespace COMrade.Core.Serial;
 /// read loop checks for cancellation.
 /// </para>
 /// <para>
-/// DTR is asserted when the port opens, as most terminals do: many USB CDC devices (RP2040,
-/// Arduino) only send data once DTR is set. RTS stays off because on ESP32 native USB and on
-/// boards with the classic auto-reset circuit, RTS alone holds the chip in reset.
+/// The control lines are set before the port opens, so a device that resets on a DTR or RTS edge
+/// sees no pulse when it opens with them off. See <see cref="ControlLines"/> for the defaults.
 /// </para>
 /// </remarks>
 public sealed class SerialConnection : ISerialConnection
@@ -29,17 +28,40 @@ public sealed class SerialConnection : ISerialConnection
     private readonly string _portName;
     private readonly byte[] _readBuffer = new byte[ReadBufferSize];
     private SerialSettings _settings;
+    private ControlLines _lines;
 
-    private SerialConnection(SerialPort port, SerialSettings settings)
+    private SerialConnection(SerialPort port, SerialSettings settings, ControlLines lines)
     {
         _port = port;
         _portName = port.PortName;
         _settings = settings;
+        _lines = lines;
+        _port.PinChanged += OnPinChanged;
+    }
+
+    public event EventHandler? ModemLinesChanged;
+
+    public ModemLines ModemLines
+    {
+        get
+        {
+            try
+            {
+                return (_port.CtsHolding ? ModemLines.Cts : 0)
+                    | (_port.DsrHolding ? ModemLines.Dsr : 0)
+                    | (_port.CDHolding ? ModemLines.CarrierDetect : 0);
+            }
+            catch (Exception ex) when (SerialPortErrors.IsPortFailure(ex))
+            {
+                // The port is failing; the read loop reports it.
+                return ModemLines.None;
+            }
+        }
     }
 
     /// <summary>Opens <paramref name="portName"/>; has the shape of <see cref="OpenSerialConnection"/>.</summary>
-    public static Task<ISerialConnection> OpenAsync(string portName, SerialSettings settings, CancellationToken cancellationToken) =>
-        Task.Run<ISerialConnection>(() => Open(portName, settings), cancellationToken);
+    public static Task<ISerialConnection> OpenAsync(string portName, SerialSettings settings, ControlLines lines, CancellationToken cancellationToken) =>
+        Task.Run<ISerialConnection>(() => Open(portName, settings, lines), cancellationToken);
 
     public ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken) =>
         new(Task.Run(() => Read(buffer, cancellationToken), cancellationToken));
@@ -52,6 +74,7 @@ public sealed class SerialConnection : ISerialConnection
         try
         {
             Configure(_port, settings);
+            SetLines(_port, settings, _lines);
             _settings = settings;
         }
         catch (Exception ex) when (SerialPortErrors.IsPortFailure(ex))
@@ -61,12 +84,46 @@ public sealed class SerialConnection : ISerialConnection
         }
     }
 
+    public void SetControlLines(ControlLines lines)
+    {
+        try
+        {
+            SetLines(_port, _settings, lines);
+            _lines = lines;
+        }
+        catch (Exception ex) when (SerialPortErrors.IsPortFailure(ex))
+        {
+            throw SerialPortErrors.ToException(ex, _portName, opening: false);
+        }
+    }
+
+    public Task SendBreakAsync(TimeSpan duration, CancellationToken cancellationToken) => Task.Run(async () =>
+    {
+        try
+        {
+            _port.BreakState = true;
+            try
+            {
+                await Task.Delay(duration, cancellationToken);
+            }
+            finally
+            {
+                _port.BreakState = false;
+            }
+        }
+        catch (Exception ex) when (SerialPortErrors.IsPortFailure(ex))
+        {
+            throw SerialPortErrors.ToException(ex, _portName, opening: false);
+        }
+    }, cancellationToken);
+
     // Closing can block for a long time on some drivers after the device is unplugged,
     // so it runs on a worker thread and the session decides how long to wait.
     public ValueTask DisposeAsync() => new(Task.Run(() =>
     {
         try
         {
+            _port.PinChanged -= OnPinChanged;
             _port.Dispose();
         }
         catch (Exception ex) when (SerialPortErrors.IsPortFailure(ex))
@@ -128,20 +185,36 @@ public sealed class SerialConnection : ISerialConnection
         }
     }
 
-    private static SerialConnection Open(string portName, SerialSettings settings)
+    private static SerialConnection Open(string portName, SerialSettings settings, ControlLines lines)
     {
-        var port = new SerialPort(portName) { DtrEnable = true, ReadTimeout = ReadPollMilliseconds };
+        var port = new SerialPort(portName) { ReadTimeout = ReadPollMilliseconds };
         try
         {
             Configure(port, settings);
+            SetLines(port, settings, lines);
             port.Open();
-            return new SerialConnection(port, settings);
+            return new SerialConnection(port, settings, lines);
         }
         catch (Exception ex) when (SerialPortErrors.IsPortFailure(ex))
         {
             port.Dispose();
             throw SerialPortErrors.ToException(ex, portName, opening: true);
         }
+    }
+
+    // Ring is not reported, so its changes are ignored.
+    private void OnPinChanged(object sender, SerialPinChangedEventArgs e)
+    {
+        if (e.EventType is not SerialPinChange.Ring)
+            ModemLinesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // RTS cannot be set while RTS/CTS flow control drives it.
+    private static void SetLines(SerialPort port, SerialSettings settings, ControlLines lines)
+    {
+        port.DtrEnable = lines.Dtr;
+        if (settings.FlowControl is not FlowControl.RtsCts)
+            port.RtsEnable = lines.Rts;
     }
 
     private void RestoreSettings()

@@ -51,6 +51,22 @@
                 Content="Close port"
                 Visibility="{x:Bind ViewModel.CanClose, Mode=OneWay}" />
             <AppBarSeparator />
+            <ToggleButton
+                Content="DTR"
+                IsChecked="{x:Bind ViewModel.IsDtr, Mode=TwoWay}"
+                ToolTipService.ToolTip="Data Terminal Ready: kept while the tab is open and set again when the port reopens" />
+            <ToggleButton
+                Content="RTS"
+                IsChecked="{x:Bind ViewModel.IsRts, Mode=TwoWay}"
+                IsEnabled="{x:Bind ViewModel.CanSetRts, Mode=OneWay}"
+                ToolTipService.ToolTip="Request To Send: kept while the tab is open and set again when the port reopens. RTS/CTS flow control drives it itself." />
+            <Button
+                AutomationProperties.Name="Break"
+                Command="{x:Bind ViewModel.BreakCommand}"
+                Content="BRK"
+                IsEnabled="{x:Bind ViewModel.IsOpen, Mode=OneWay}"
+                ToolTipService.ToolTip="Send a break of 250 ms" />
+            <AppBarSeparator />
             <Button Command="{x:Bind ViewModel.ClearCommand}" ToolTipService.ToolTip="Clear the terminal">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon FontSize="14" Glyph="&#xE894;" />
@@ -128,26 +144,56 @@
                 </Ellipse>
                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
             </StackPanel>
+            <!-- Logging, then the device's input lines (bright when on). -->
             <StackPanel
                 Grid.Column="1"
                 HorizontalAlignment="Right"
                 Orientation="Horizontal"
-                Spacing="8"
-                Visibility="{x:Bind ViewModel.IsLogging, Mode=OneWay}">
-                <Ellipse
-                    Width="8"
-                    Height="8"
-                    VerticalAlignment="Center"
-                    Fill="{ThemeResource SystemFillColorCriticalBrush}" />
-                <TextBlock
-                    VerticalAlignment="Center"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind ViewModel.LogText, Mode=OneWay}" />
-                <HyperlinkButton
-                    Padding="4,0"
-                    Command="{x:Bind ViewModel.OpenLogFolderCommand}"
-                    Content="Open folder"
-                    FontSize="12" />
+                Spacing="16">
+                <!-- Logging to a file. -->
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    Visibility="{x:Bind ViewModel.IsLogging, Mode=OneWay}">
+                    <Ellipse
+                        Width="8"
+                        Height="8"
+                        VerticalAlignment="Center"
+                        Fill="{ThemeResource SystemFillColorCriticalBrush}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind ViewModel.LogText, Mode=OneWay}" />
+                    <HyperlinkButton
+                        Padding="4,0"
+                        Command="{x:Bind ViewModel.OpenLogFolderCommand}"
+                        Content="Open folder"
+                        FontSize="12" />
+                </StackPanel>
+                <!-- CTS, DSR and CD. -->
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="10"
+                    Visibility="{x:Bind ViewModel.IsOpen, Mode=OneWay}">
+                    <TextBlock
+                        FontFamily="Cascadia Mono"
+                        Opacity="{x:Bind ViewModel.CtsOpacity, Mode=OneWay}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="CTS"
+                        ToolTipService.ToolTip="Clear To Send" />
+                    <TextBlock
+                        FontFamily="Cascadia Mono"
+                        Opacity="{x:Bind ViewModel.DsrOpacity, Mode=OneWay}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="DSR"
+                        ToolTipService.ToolTip="Data Set Ready" />
+                    <TextBlock
+                        FontFamily="Cascadia Mono"
+                        Opacity="{x:Bind ViewModel.CdOpacity, Mode=OneWay}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="CD"
+                        ToolTipService.ToolTip="Carrier Detect" />
+                </StackPanel>
             </StackPanel>
             <TextBlock
                 Grid.Column="2"

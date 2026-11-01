@@ -10,7 +10,7 @@ public class SerialConnectionTests
     public async Task Opening_a_port_that_does_not_exist_reports_not_found()
     {
         var exception = await Assert.ThrowsAsync<SerialPortException>(
-            () => SerialConnection.OpenAsync("COM250", SerialSettings.Default, Cancellation));
+            () => SerialConnection.OpenAsync("COM250", SerialSettings.Default, ControlLines.Default, Cancellation));
 
         Assert.Equal(SerialPortError.NotFound, exception.Error);
     }
@@ -18,7 +18,7 @@ public class SerialConnectionTests
     [Fact]
     public async Task Real_port_opens_and_closes()
     {
-        var connection = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, Cancellation);
+        var connection = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, ControlLines.Default, Cancellation);
 
         await connection.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5), Cancellation);
     }
@@ -26,10 +26,10 @@ public class SerialConnectionTests
     [Fact]
     public async Task Opening_a_port_that_is_already_open_reports_in_use()
     {
-        await using var first = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, Cancellation);
+        await using var first = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, ControlLines.Default, Cancellation);
 
         var exception = await Assert.ThrowsAsync<SerialPortException>(
-            () => SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, Cancellation));
+            () => SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, ControlLines.Default, Cancellation));
 
         Assert.Equal(SerialPortError.InUse, exception.Error);
     }
@@ -37,7 +37,7 @@ public class SerialConnectionTests
     [Fact]
     public async Task Closing_the_port_ends_a_waiting_read_quietly()
     {
-        var connection = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, Cancellation);
+        var connection = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, ControlLines.Default, Cancellation);
         using var session = new CancellationTokenSource();
         var read = connection.ReadAsync(new byte[256], session.Token).AsTask();
         await Task.Delay(300, Cancellation);
@@ -52,16 +52,16 @@ public class SerialConnectionTests
     [Fact]
     public async Task Port_reopens_after_being_closed()
     {
-        var first = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, Cancellation);
+        var first = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, ControlLines.Default, Cancellation);
         await first.DisposeAsync();
 
-        await using var second = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, Cancellation);
+        await using var second = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, ControlLines.Default, Cancellation);
     }
 
     [Fact]
     public async Task Settings_change_on_an_open_port()
     {
-        await using var connection = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, Cancellation);
+        await using var connection = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, ControlLines.Default, Cancellation);
 
         connection.ApplySettings(SerialSettings.Default with { BaudRate = 9600, Parity = Parity.Even });
         connection.ApplySettings(SerialSettings.Default with { BaudRate = 921600 });
@@ -70,7 +70,7 @@ public class SerialConnectionTests
     [Fact]
     public async Task Rejected_settings_leave_the_port_usable()
     {
-        await using var connection = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, Cancellation);
+        await using var connection = await SerialConnection.OpenAsync(TestPorts.Any, SerialSettings.Default, ControlLines.Default, Cancellation);
 
         var exception = Assert.Throws<SerialPortException>(
             () => connection.ApplySettings(SerialSettings.Default with { BaudRate = 0 }));
@@ -86,7 +86,7 @@ public class SerialConnectionTests
     public async Task Data_sent_on_a_loopback_port_comes_back_intact(int baudRate)
     {
         await using var connection = await SerialConnection.OpenAsync(
-            TestPorts.Loopback, SerialSettings.Default with { BaudRate = baudRate }, Cancellation);
+            TestPorts.Loopback, SerialSettings.Default with { BaudRate = baudRate }, ControlLines.Default, Cancellation);
         var sent = new byte[baudRate >= 115200 ? 8192 : 1024];
         Random.Shared.NextBytes(sent);
 
