@@ -33,12 +33,34 @@ jobs:
       - name: Build
         run: dotnet build COMrade.slnx -c Release -p:Platform=${{ matrix.platform }}
 
-      # The solution build already built the tests, before anything is published or packaged.
       - name: Test
-        run: dotnet test --project COMrade.Core.Tests -c Release --no-build
+        run: >-
+          dotnet test --project COMrade.Core.Tests -c Release --no-build
+          --results-directory "${{ github.workspace }}/TestResults"
+          --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
 
       - name: Integration tests
         run: dotnet test --project COMrade.IntegrationTests -c Release --no-build
+
+      - name: Coverage report
+        if: ${{ !cancelled() && hashFiles('TestResults/coverage.cobertura.xml') != '' }}
+        shell: pwsh
+        run: |
+          dotnet tool install dotnet-reportgenerator-globaltool --version 5.5.12 --tool-path tools
+          tools/reportgenerator -reports:TestResults/coverage.cobertura.xml -targetdir:TestResults/coverage -reporttypes:"HtmlInline;MarkdownSummaryGithub"
+          Get-Content TestResults/coverage/SummaryGithub.md -Encoding utf8 |
+            Where-Object { $_ -notmatch 'only available for sponsors' } |
+            ForEach-Object { $_ -replace '^# Summary$', '## Code coverage' } |
+            Add-Content $env:GITHUB_STEP_SUMMARY -Encoding utf8
+
+      - name: Upload coverage
+        if: ${{ !cancelled() && hashFiles('TestResults/coverage.cobertura.xml') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-${{ matrix.platform }}
+          path: |
+            TestResults/coverage.cobertura.xml
+            TestResults/coverage/
 
       - name: Publish
         run: dotnet publish COMrade/COMrade.csproj -c Release -p:Platform=${{ matrix.platform }} -p:SelfContained=true -o publish/COMrade
