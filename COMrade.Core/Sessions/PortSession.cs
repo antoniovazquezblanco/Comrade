@@ -61,12 +61,21 @@ public sealed class PortSession : IAsyncDisposable
     /// <summary>Bytes arrived from the device. Raised on a background thread.</summary>
     public event EventHandler<byte[]>? DataReceived;
 
+    /// <summary>An input line of the open port changed; read <see cref="ModemLines"/>. Raised on a background thread.</summary>
+    public event EventHandler? ModemLinesChanged;
+
     /// <summary>The port this session talks to; follows the device when its COM number changes.</summary>
     public SerialPortInfo Port { get; private set; }
 
     public SerialSettings Settings { get; private set; }
 
     public bool ReopenAutomatically { get; set; } = true;
+
+    /// <summary>DTR and RTS as chosen for this session; set again each time the port opens.</summary>
+    public ControlLines ControlLines { get; private set; } = ControlLines.Default;
+
+    /// <summary>The input lines of the open port; none while it is not open.</summary>
+    public ModemLines ModemLines => _connection?.ModemLines ?? ModemLines.None;
 
     public PortSessionState State { get; private set; } = PortSessionState.Closed;
 
@@ -149,6 +158,60 @@ public sealed class PortSession : IAsyncDisposable
     }
 
     /// <summary>
+    /// Sets DTR and RTS, on the open port if there is one, and keeps them for the next time it opens.
+    /// Returns false when the open port failed to set them.
+    /// </summary>
+    public async Task<bool> SetControlLinesAsync(ControlLines lines)
+    {
+        ISerialConnection? connection;
+        SerialPortError error;
+        await _gate.WaitAsync();
+        try
+        {
+            ControlLines = lines;
+            connection = _connection;
+            if (connection is null)
+                return true;
+
+            try
+            {
+                connection.SetControlLines(lines);
+                return true;
+            }
+            catch (SerialPortException ex)
+            {
+                error = ex.Error;
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        await ConnectionLostAsync(connection, error);
+        return false;
+    }
+
+    /// <summary>Sends a break of <paramref name="duration"/>; returns false when the port is not open or it failed.</summary>
+    public async Task<bool> SendBreakAsync(TimeSpan duration)
+    {
+        var connection = _connection;
+        if (connection is null)
+            return false;
+
+        try
+        {
+            await connection.SendBreakAsync(duration, CancellationToken.None);
+            return true;
+        }
+        catch (SerialPortException ex)
+        {
+            await ConnectionLostAsync(connection, ex.Error);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Changes the line settings, on the open port if there is one. Returns false, keeping the
     /// previous settings, when the driver rejects them.
     /// </summary>
@@ -195,7 +258,7 @@ public sealed class PortSession : IAsyncDisposable
         ISerialConnection connection;
         try
         {
-            connection = await _openConnection(Port.PortName, Settings, CancellationToken.None);
+            connection = await _openConnection(Port.PortName, Settings, ControlLines, CancellationToken.None);
         }
         catch (SerialPortException ex)
         {
@@ -204,6 +267,7 @@ public sealed class PortSession : IAsyncDisposable
         }
 
         _connection = connection;
+        connection.ModemLinesChanged += OnModemLinesChanged;
         _readCancellation = new CancellationTokenSource();
         LastError = null;
         OpenedAt = _time.GetUtcNow();
@@ -222,6 +286,7 @@ public sealed class PortSession : IAsyncDisposable
             return;
 
         _connection = null;
+        connection.ModemLinesChanged -= OnModemLinesChanged;
         OpenedAt = null;
         _readCancellation?.Cancel();
         _readCancellation = null;
@@ -285,6 +350,8 @@ public sealed class PortSession : IAsyncDisposable
             _gate.Release();
         }
     }
+
+    private void OnModemLinesChanged(object? sender, EventArgs e) => ModemLinesChanged?.Invoke(this, EventArgs.Empty);
 
     private bool IsDeviceGone(SerialPortError error) =>
         error is SerialPortError.DeviceRemoved or SerialPortError.NotFound || !_isDevicePresent;

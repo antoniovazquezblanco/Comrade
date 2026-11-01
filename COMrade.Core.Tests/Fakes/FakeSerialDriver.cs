@@ -32,14 +32,14 @@ internal sealed class FakeSerialDriver
         }
     }
 
-    public Task<ISerialConnection> OpenAsync(string portName, SerialSettings settings, CancellationToken cancellationToken)
+    public Task<ISerialConnection> OpenAsync(string portName, SerialSettings settings, ControlLines lines, CancellationToken cancellationToken)
     {
         lock (_lock)
         {
             if (_openFailures.TryDequeue(out var error))
                 return Task.FromException<ISerialConnection>(new SerialPortException(error, $"{portName}: {error}"));
 
-            var connection = new FakeSerialConnection(portName, settings, HangOnClose);
+            var connection = new FakeSerialConnection(portName, settings, lines, HangOnClose);
             _connections.Add(connection);
             return Task.FromResult<ISerialConnection>(connection);
         }

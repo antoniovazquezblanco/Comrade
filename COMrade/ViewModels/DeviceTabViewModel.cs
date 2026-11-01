@@ -22,6 +22,7 @@ namespace COMrade.ViewModels;
 public sealed partial class DeviceTabViewModel : TabViewModel
 {
     private static readonly TimeSpan WaitingBarDelay = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan BreakDuration = TimeSpan.FromMilliseconds(250);
 
     private static readonly Color Green = Color.FromArgb(0xFF, 0x6C, 0xCB, 0x5F);
     private static readonly Color Amber = Color.FromArgb(0xFF, 0xFC, 0xE1, 0x00);
@@ -55,6 +56,7 @@ public sealed partial class DeviceTabViewModel : TabViewModel
         session.ReopenAutomatically = settings.ReopenAutomatically;
         session.StateChanged += OnSessionChanged;
         session.PortChanged += OnSessionChanged;
+        session.ModemLinesChanged += OnModemLinesChanged;
 
         _clock = _ui.CreateTimer();
         _clock.Interval = TimeSpan.FromSeconds(1);
@@ -164,6 +166,32 @@ public sealed partial class DeviceTabViewModel : TabViewModel
         _ => "The port reported an error. Unplug and replug the device, then try again.",
     };
 
+    // Control lines.
+
+    public bool IsOpen => _state is PortSessionState.Open;
+
+    /// <summary>DTR, remembered while the tab is open and set again when the port reopens.</summary>
+    public bool IsDtr
+    {
+        get => Session.ControlLines.Dtr;
+        set => _ = SetControlLinesAsync(Session.ControlLines with { Dtr = value });
+    }
+
+    public bool IsRts
+    {
+        get => Session.ControlLines.Rts;
+        set => _ = SetControlLinesAsync(Session.ControlLines with { Rts = value });
+    }
+
+    /// <summary>RTS/CTS flow control drives RTS itself.</summary>
+    public bool CanSetRts => Settings.Serial.FlowControl is not FlowControl.RtsCts;
+
+    public double CtsOpacity => LineOpacity(ModemLines.Cts);
+
+    public double DsrOpacity => LineOpacity(ModemLines.Dsr);
+
+    public double CdOpacity => LineOpacity(ModemLines.CarrierDetect);
+
     // Status bar.
 
     public Color StatusColor => _state switch
@@ -217,6 +245,9 @@ public sealed partial class DeviceTabViewModel : TabViewModel
 
     [RelayCommand]
     private void ResetName() => Rename(null);
+
+    [RelayCommand]
+    private Task BreakAsync() => Session.SendBreakAsync(BreakDuration);
 
     [RelayCommand]
     private void Clear() => ClearRequested?.Invoke(this, EventArgs.Empty);
@@ -336,6 +367,7 @@ public sealed partial class DeviceTabViewModel : TabViewModel
         _clock.Stop();
         Session.StateChanged -= OnSessionChanged;
         Session.PortChanged -= OnSessionChanged;
+        Session.ModemLinesChanged -= OnModemLinesChanged;
     }
 
     // Applies a change from the port settings to the session and remembers it for the device.
@@ -364,6 +396,24 @@ public sealed partial class DeviceTabViewModel : TabViewModel
 
     // Session events arrive on background threads.
     private void OnSessionChanged(object? sender, EventArgs e) => _ui.TryEnqueue(UpdateState);
+
+    private void OnModemLinesChanged(object? sender, EventArgs e) => _ui.TryEnqueue(() =>
+    {
+        OnPropertyChanged(nameof(CtsOpacity));
+        OnPropertyChanged(nameof(DsrOpacity));
+        OnPropertyChanged(nameof(CdOpacity));
+    });
+
+    // A line that is on shows bright, one that is off dim.
+    private double LineOpacity(ModemLines line) => Session.ModemLines.HasFlag(line) ? 1 : 0.35;
+
+    // The toggles show what the session holds, also when the port failed to take it.
+    private async Task SetControlLinesAsync(ControlLines lines)
+    {
+        await Session.SetControlLinesAsync(lines);
+        OnPropertyChanged(nameof(IsDtr));
+        OnPropertyChanged(nameof(IsRts));
+    }
 
     private void UpdateState()
     {
