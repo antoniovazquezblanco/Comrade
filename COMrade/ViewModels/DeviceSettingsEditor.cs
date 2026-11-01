@@ -94,6 +94,19 @@ public sealed partial class DeviceSettingsEditor(DeviceSettings settings, Func<D
         }
     }
 
+    /// <summary>For a NumberBox: milliseconds, 0 to 10000; an emptied box means 0.</summary>
+    public double CharacterDelay
+    {
+        get => Settings.Serial.CharacterDelayMilliseconds;
+        set => _ = ChangeAsync(Settings with { Serial = Settings.Serial with { CharacterDelayMilliseconds = Milliseconds(value) } });
+    }
+
+    public double LineDelay
+    {
+        get => Settings.Serial.LineDelayMilliseconds;
+        set => _ = ChangeAsync(Settings with { Serial = Settings.Serial with { LineDelayMilliseconds = Milliseconds(value) } });
+    }
+
     public bool LocalEcho
     {
         get => Settings.Terminal.LocalEcho;
@@ -117,6 +130,8 @@ public sealed partial class DeviceSettingsEditor(DeviceSettings settings, Func<D
         get => Settings.ReopenAutomatically;
         set => _ = ChangeAsync(Settings with { ReopenAutomatically = value });
     }
+
+    private static int Milliseconds(double value) => double.IsNaN(value) ? 0 : (int)Math.Clamp(Math.Round(value), 0, 10000);
 
     /// <summary>Applies a change made elsewhere, such as the tab's name, as the fields do.</summary>
     public async Task ChangeAsync(DeviceSettings changed)

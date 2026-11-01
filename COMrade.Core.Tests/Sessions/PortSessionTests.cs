@@ -79,6 +79,62 @@ public class PortSessionTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task A_character_delay_paces_every_byte()
+    {
+        await _session.OpenAsync();
+        await _session.ApplySettingsAsync(SerialSettings.Default with { CharacterDelayMilliseconds = 10 });
+
+        var send = _session.SendAsync("abc"u8.ToArray());
+        await WaitForAsync(() => _driver.Current.Written.Length == 1);
+        _time.Advance(TimeSpan.FromMilliseconds(9));
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.Equal("a"u8.ToArray(), _driver.Current.Written);
+
+        _time.Advance(TimeSpan.FromMilliseconds(1));
+        await WaitForAsync(() => _driver.Current.Written.Length == 2);
+        await AdvanceTimeUntilAsync(() => send.IsCompleted);
+
+        Assert.True(await send);
+        Assert.Equal("abc"u8.ToArray(), _driver.Current.Written);
+        Assert.Equal(3, _session.BytesSent);
+    }
+
+    [Fact]
+    public async Task A_line_delay_waits_after_each_line_only()
+    {
+        await _session.OpenAsync();
+        await _session.ApplySettingsAsync(SerialSettings.Default with { LineDelayMilliseconds = 100 });
+
+        var send = _session.SendAsync("a\r\nb\r"u8.ToArray());
+        await WaitForAsync(() => _driver.Current.Written.Length == 3);
+        _time.Advance(TimeSpan.FromMilliseconds(99));
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.Equal("a\r\n"u8.ToArray(), _driver.Current.Written);
+
+        _time.Advance(TimeSpan.FromMilliseconds(1));
+        await AdvanceTimeUntilAsync(() => send.IsCompleted);
+
+        Assert.True(await send);
+        Assert.Equal("a\r\nb\r"u8.ToArray(), _driver.Current.Written);
+    }
+
+    [Fact]
+    public async Task Closing_the_port_stops_a_paced_send()
+    {
+        await _session.OpenAsync();
+        await _session.ApplySettingsAsync(SerialSettings.Default with { CharacterDelayMilliseconds = 1000 });
+        var connection = _driver.Current;
+
+        var send = _session.SendAsync("abc"u8.ToArray());
+        await WaitForAsync(() => connection.Written.Length == 1);
+        await _session.CloseAsync();
+        await AdvanceTimeUntilAsync(() => send.IsCompleted);
+
+        Assert.False(await send);
+        Assert.Equal("a"u8.ToArray(), connection.Written);
+    }
+
+    [Fact]
     public async Task Sending_while_closed_does_nothing()
     {
         Assert.False(await _session.SendAsync("ls\r"u8.ToArray()));
