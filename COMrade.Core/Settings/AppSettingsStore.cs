@@ -28,10 +28,17 @@ public sealed class AppSettingsStore
         }
     }
 
-    public void Save(AppSettings settings)
+    public void Save(AppSettings settings) => Update(_ => settings);
+
+    /// <summary>
+    /// Saves <paramref name="change"/> applied to the current settings, so that it never undoes a
+    /// change saved meanwhile.
+    /// </summary>
+    public void Update(Func<AppSettings, AppSettings> change)
     {
         lock (_lock)
         {
+            var settings = change(_current);
             if (settings == _current)
                 return;
             _current = settings;

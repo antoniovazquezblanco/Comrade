@@ -253,6 +253,33 @@
                 </Border>
 
                 <Border Style="{StaticResource SectionStyle}">
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="2">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Updates" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="COMrade asks GitHub for its latest release and tells you when a newer one is out. The request carries COMrade's version and nothing else."
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <CheckBox Content="Check for updates once a day" IsChecked="{x:Bind ViewModel.CheckForUpdatesAutomatically, Mode=TwoWay}" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Button
+                                Command="{x:Bind ViewModel.CheckForUpdatesCommand}"
+                                Content="Check now"
+                                IsEnabled="{x:Bind ViewModel.CanCheckForUpdates, Mode=OneWay}" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}" />
+                            <HyperlinkButton
+                                Content="Download"
+                                NavigateUri="{x:Bind ViewModel.UpdatePage, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.HasUpdate, Mode=OneWay}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource SectionStyle}">
                     <StackPanel Spacing="4">
                         <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="About" />
                         <TextBlock Text="{x:Bind ViewModel.Version}" />

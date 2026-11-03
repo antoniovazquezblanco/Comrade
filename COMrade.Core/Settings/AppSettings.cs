@@ -8,11 +8,13 @@ namespace COMrade.Core.Settings;
 /// <param name="TabMode">Whether tabs shrink (the default) or scroll when there are many.</param>
 /// <param name="Terminal">Font, colours and cursor of every terminal; null in files from before it existed.</param>
 /// <param name="Logging">How sessions are logged to files; null in files from before it existed.</param>
+/// <param name="Updates">How COMrade looks for new releases; null in files from before it existed.</param>
 public sealed record AppSettings(
     DeviceSettings NewDevice,
     TabMode TabMode = TabMode.Compact,
     TerminalAppearance? Terminal = null,
-    LogSettings? Logging = null)
+    LogSettings? Logging = null,
+    UpdateSettings? Updates = null)
 {
     public static AppSettings Default { get; } = new(DeviceSettings.Default, Terminal: TerminalAppearance.Default);
 
@@ -23,4 +25,8 @@ public sealed record AppSettings(
     /// <summary>The log settings, with the defaults for settings saved before they existed.</summary>
     [JsonIgnore]
     public LogSettings LoggingOrDefault => Logging ?? LogSettings.Default;
+
+    /// <summary>The update settings, with the defaults for settings saved before they existed.</summary>
+    [JsonIgnore]
+    public UpdateSettings UpdatesOrDefault => Updates ?? UpdateSettings.Default;
 }

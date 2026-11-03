@@ -14,6 +14,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -177,9 +178,24 @@
             </TabView.TabItemTemplateSelector>
         </TabView>
 
+        <!-- Pushes the tabs' contents down rather than covering them: a terminal is a native
+             window that nothing can be drawn over. -->
+        <InfoBar
+            Grid.Row="1"
+            Title="Update available"
+            Background="{ThemeResource TabViewItemHeaderBackgroundSelected}"
+            CloseButtonClick="OnUpdateNoticeClosed"
+            IsOpen="{x:Bind ViewModel.ShowUpdateNotice, Mode=OneWay}"
+            Message="{x:Bind ViewModel.UpdateMessage, Mode=OneWay}"
+            Severity="Informational">
+            <InfoBar.ActionButton>
+                <HyperlinkButton Content="Download" NavigateUri="{x:Bind ViewModel.UpdatePage, Mode=OneWay}" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
         <Grid
             x:Name="TabContents"
-            Grid.Row="1"
+            Grid.Row="2"
             Background="{ThemeResource TabViewItemHeaderBackgroundSelected}">
             <views:PortPickerView
                 x:Name="PortPicker"

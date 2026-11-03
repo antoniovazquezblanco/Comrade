@@ -5,10 +5,10 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using COMrade.Core.Settings;
 using COMrade.Core.Terminal;
+using COMrade.Core.Updates;
 using COMrade.Terminal;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
@@ -21,15 +21,18 @@ public sealed partial class SettingsTabViewModel : TabViewModel
 {
     private readonly AppSettingsStore _settings;
     private readonly DeviceSettingsStore _devices;
+    private readonly UpdateService _updates;
     private readonly DispatcherQueue _ui = DispatcherQueue.GetForCurrentThread();
 
-    public SettingsTabViewModel(AppSettingsStore settings, DeviceSettingsStore devices)
+    public SettingsTabViewModel(AppSettingsStore settings, DeviceSettingsStore devices, UpdateService updates)
     {
         _settings = settings;
         _devices = devices;
+        _updates = updates;
         NewDevice = new DeviceSettingsEditor(settings.Current.NewDevice, ApplyNewDeviceAsync);
 
         _devices.Changed += OnDevicesChanged;
+        _updates.Changed += OnUpdatesChanged;
         RefreshDevices();
     }
 
@@ -192,8 +195,33 @@ public sealed partial class SettingsTabViewModel : TabViewModel
     public bool HasNoRememberedDevices => RememberedDevices.Count == 0;
 
     /// <summary>For example "COMrade 0.2.0".</summary>
-    public string Version { get; } =
-        $"COMrade {typeof(SettingsTabViewModel).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]}";
+    public string Version { get; } = $"COMrade {App.Version}";
+
+    // Updates: the automatic checks and a check on demand.
+
+    public bool CheckForUpdatesAutomatically
+    {
+        get => _settings.Current.UpdatesOrDefault.CheckAutomatically;
+        set => _settings.Update(settings => settings with { Updates = settings.UpdatesOrDefault with { CheckAutomatically = value } });
+    }
+
+    public bool CanCheckForUpdates => _updates.State is not UpdateState.Checking;
+
+    public string UpdateStatus => _updates.State switch
+    {
+        UpdateState.Checking => "Checking for updates...",
+        UpdateState.UpToDate => "COMrade is up to date.",
+        UpdateState.Available => $"COMrade {_updates.Update?.Version} is available.",
+        UpdateState.Failed => $"Could not check for updates. {_updates.Error}",
+        _ => _settings.Current.UpdatesOrDefault.LastChecked is { } last ? $"Last checked {last.ToLocalTime():g}." : string.Empty,
+    };
+
+    public bool HasUpdate => _updates.Update is not null;
+
+    public Uri? UpdatePage => _updates.Update?.Page;
+
+    [RelayCommand]
+    private Task CheckForUpdatesAsync() => _updates.CheckAsync();
 
     public Uri RepositoryUri { get; } = new("https://github.com/antoniovazquezblanco/Comrade");
 
@@ -212,7 +240,20 @@ public sealed partial class SettingsTabViewModel : TabViewModel
     private static void OpenThirdPartyNotices() =>
         Process.Start(new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "ThirdPartyNotices.txt")) { UseShellExecute = true });
 
-    public override void Dispose() => _devices.Changed -= OnDevicesChanged;
+    public override void Dispose()
+    {
+        _devices.Changed -= OnDevicesChanged;
+        _updates.Changed -= OnUpdatesChanged;
+    }
+
+    // Raised on the UI thread.
+    private void OnUpdatesChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(CanCheckForUpdates));
+        OnPropertyChanged(nameof(UpdateStatus));
+        OnPropertyChanged(nameof(HasUpdate));
+        OnPropertyChanged(nameof(UpdatePage));
+    }
 
     private void SetTabMode(TabMode mode)
     {

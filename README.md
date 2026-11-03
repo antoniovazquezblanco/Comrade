@@ -48,6 +48,9 @@ Both include .NET and the Windows App SDK. Each file has a Sigstore signature (`
 by the release workflow, and each release has SLSA build provenance (`.intoto.jsonl`); see
 [SECURITY.md](SECURITY.md#checking-a-download) for how to check a download.
 
+COMrade tells you when a new release is out: once a day it asks GitHub for the latest release,
+sending only its version. Turn it off in Settings, under Updates.
+
 Requirements: Windows 10 version 1809 or later, x64.
 
 ## Building

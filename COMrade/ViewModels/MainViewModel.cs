@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using COMrade.Core.Ports;
 using COMrade.Core.Sessions;
 using COMrade.Core.Settings;
+using COMrade.Core.Updates;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace COMrade.ViewModels;
@@ -16,14 +17,17 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly PortSessions _sessions;
     private readonly DeviceSettingsStore _devices;
     private readonly AppSettingsStore _settings;
+    private readonly UpdateService _updates;
 
-    public MainViewModel(PortListViewModel portList, PortSessions sessions, DeviceSettingsStore devices, AppSettingsStore settings)
+    public MainViewModel(PortListViewModel portList, PortSessions sessions, DeviceSettingsStore devices, AppSettingsStore settings, UpdateService updates)
     {
         PortList = portList;
         _sessions = sessions;
         _devices = devices;
         _settings = settings;
+        _updates = updates;
         _settings.Changed += OnSettingsChanged;
+        _updates.Changed += OnUpdatesChanged;
     }
 
     public PortListViewModel PortList { get; }
@@ -37,6 +41,17 @@ public sealed partial class MainViewModel : ObservableObject
     public bool ShowEmptyState => Tabs.Count == 0;
 
     public string Title => SelectedTab?.WindowTitle ?? "COMrade";
+
+    // The notice of a new release, above the tabs' contents of every window.
+
+    public bool ShowUpdateNotice => _updates.ShowNotice;
+
+    public string UpdateMessage => _updates.Update is { } update ? $"COMrade {update.Version} is available. You have {_updates.Current}." : string.Empty;
+
+    public Uri? UpdatePage => _updates.Update?.Page;
+
+    /// <summary>Closes the notice in every window, until a newer release comes out.</summary>
+    public void DismissUpdate() => _updates.Dismiss();
 
     partial void OnSelectedTabChanged(TabViewModel? value) => UpdateTabTitles();
 
@@ -68,7 +83,7 @@ public sealed partial class MainViewModel : ObservableObject
         var tab = Tabs.OfType<SettingsTabViewModel>().FirstOrDefault();
         if (tab is null)
         {
-            tab = new SettingsTabViewModel(_settings, _devices);
+            tab = new SettingsTabViewModel(_settings, _devices, _updates);
             Attach(tab, Tabs.Count);
         }
 
@@ -115,6 +130,7 @@ public sealed partial class MainViewModel : ObservableObject
     public async Task CloseAllAsync()
     {
         _settings.Changed -= OnSettingsChanged;
+        _updates.Changed -= OnUpdatesChanged;
         var tabs = Tabs.ToList();
         foreach (var tab in tabs)
         {
@@ -127,6 +143,14 @@ public sealed partial class MainViewModel : ObservableObject
 
     // The settings page changes the tab mode; it saves on the UI thread.
     private void OnSettingsChanged(object? sender, EventArgs e) => UpdateTabTitles();
+
+    // Raised on the UI thread.
+    private void OnUpdatesChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(ShowUpdateNotice));
+        OnPropertyChanged(nameof(UpdateMessage));
+        OnPropertyChanged(nameof(UpdatePage));
+    }
 
     // In compact mode, every tab but the selected one shows its short title.
     private void UpdateTabTitles()
