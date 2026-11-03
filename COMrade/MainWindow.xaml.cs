@@ -202,6 +202,8 @@ public sealed partial class MainWindow : Window
 
     private void OnSettingsClick(object sender, RoutedEventArgs e) => ViewModel.OpenSettings();
 
+    private void OnUpdateNoticeClosed(InfoBar sender, object args) => ViewModel.DismissUpdate();
+
     private void ShowPortMenu()
     {
         var menu = (MenuFlyout)Tabs.Resources["PortMenu"];
