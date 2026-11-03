@@ -2,7 +2,7 @@
 
   <!-- Builds COMrade-<version>-win-x64.msi from a self-contained publish of the app, e.g.:
        dotnet publish COMrade/COMrade.csproj -c Release -p:Platform=x64 -p:SelfContained=true -o publish/COMrade
-       dotnet build COMrade.Installer -c Release -p:AppFolder=../publish/COMrade -p:ProductVersion=0.3.0
+       dotnet build COMrade.Installer -c Release -p:AppFolder=../publish/COMrade
        WiX 5: later versions ask users to accept the Open Source Maintenance Fee agreement. -->
   <PropertyGroup>
     <OutputName>COMrade</OutputName>
@@ -11,10 +11,9 @@
          platform folder. -->
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <AppFolder Condition="'$(AppFolder)' == ''">..\publish\COMrade</AppFolder>
-    <ProductVersion Condition="'$(ProductVersion)' == ''">0.0.0</ProductVersion>
     <AppFolderFull>$([System.IO.Path]::GetFullPath('$(AppFolder)'))</AppFolderFull>
     <LicenseRtf>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)License.rtf</LicenseRtf>
-    <DefineConstants>ProductVersion=$(ProductVersion);AppFolder=$(AppFolderFull);LicenseRtf=$(LicenseRtf)</DefineConstants>
+    <DefineConstants>AppFolder=$(AppFolderFull);LicenseRtf=$(LicenseRtf)</DefineConstants>
     <!-- ICE03: some Windows App SDK files declare more languages than the column holds; it only
          breaks ties between files of equal version. ICE57: the Start menu entry's key path is in
          HKMU, which follows the scope chosen at install time; the check cannot know that. -->
@@ -29,6 +28,33 @@
   <ItemGroup>
     <PackageReference Remove="MinVer" />
   </ItemGroup>
+
+  <!-- The MSI's version, shown in Settings > Apps, is the version of the COMrade.exe it installs, so
+       the two never differ. Only its first three numbers: MinVer leaves the fourth at 0, and an MSI
+       version cannot hold a pre-release label, so a build after v0.3.0 installs as 0.3.1. -->
+  <Target Name="ReadProductVersion" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(AppFolderFull)\COMrade.exe')" Text="No COMrade.exe in $(AppFolderFull): publish the app first, or point AppFolder at the publish folder." />
+    <ReadFileVersion File="$(AppFolderFull)\COMrade.exe">
+      <Output TaskParameter="Version" PropertyName="ProductVersion" />
+    </ReadFileVersion>
+    <PropertyGroup>
+      <DefineConstants>$(DefineConstants);ProductVersion=$(ProductVersion)</DefineConstants>
+    </PropertyGroup>
+    <Message Importance="high" Text="COMrade.msi version: $(ProductVersion)" />
+  </Target>
+
+  <UsingTask TaskName="ReadFileVersion" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <File Required="true" />
+      <Version Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(File);
+        Version = $"{info.FileMajorPart}.{info.FileMinorPart}.{info.FileBuildPart}";
+      ]]></Code>
+    </Task>
+  </UsingTask>
 
   <!-- The license page's text: the LICENSE.md and ThirdPartyNotices.txt being installed, as RTF. -->
   <Target Name="WriteLicenseRtf" BeforeTargets="CoreCompile">

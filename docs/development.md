@@ -23,11 +23,12 @@ dotnet publish COMrade/COMrade.csproj -c Release -p:Platform=x64 -p:SelfContaine
 
 The installer packs that build into an MSI (WiX 5) that installs either just for the current user
 or, with administrator rights, for every user. It is not built with the solution, as it needs the
-published app; the version must be plain numbers. The MSI lands in
+published app, and takes its version from that build's `COMrade.exe` (0.3.1 for a build after
+v0.3.0: an MSI version cannot say pre-release). The MSI lands in
 `COMrade.Installer/bin/Release/en-US/`:
 
 ```powershell
-dotnet build COMrade.Installer -c Release -p:AppFolder="$PWD/publish/COMrade" -p:ProductVersion=0.3.0
+dotnet build COMrade.Installer -c Release -p:AppFolder="$PWD/publish/COMrade"
 ```
 
 Unattended, `msiexec /i COMrade.msi /qn` installs for the current user and adds `ALLUSERS=1` to
