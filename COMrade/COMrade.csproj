@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\LICENSE.md" Link="LICENSE.md" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="ThirdPartyNotices.txt" CopyToOutputDirectory="PreserveNewest" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
