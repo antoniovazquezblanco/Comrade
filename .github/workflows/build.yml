@@ -115,7 +115,7 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
           VERSION: ${{ steps.distribution.outputs.version }}
         run: |
-          dotnet build COMrade.Installer -c Release -p:AppFolder="$PWD/publish/COMrade" -p:ProductVersion=$(($env:VERSION -split '-')[0])
+          dotnet build COMrade.Installer -c Release -p:AppFolder="$PWD/publish/COMrade"
           Copy-Item COMrade.Installer/bin/Release/en-US/COMrade.msi "dist/COMrade-$env:VERSION-win-$env:PLATFORM.msi"
 
       - name: Upload distribution
