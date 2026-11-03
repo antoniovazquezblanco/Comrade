@@ -13,7 +13,8 @@
     <AppFolder Condition="'$(AppFolder)' == ''">..\publish\COMrade</AppFolder>
     <ProductVersion Condition="'$(ProductVersion)' == ''">0.0.0</ProductVersion>
     <AppFolderFull>$([System.IO.Path]::GetFullPath('$(AppFolder)'))</AppFolderFull>
-    <DefineConstants>ProductVersion=$(ProductVersion);AppFolder=$(AppFolderFull)</DefineConstants>
+    <LicenseRtf>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)License.rtf</LicenseRtf>
+    <DefineConstants>ProductVersion=$(ProductVersion);AppFolder=$(AppFolderFull);LicenseRtf=$(LicenseRtf)</DefineConstants>
     <!-- ICE03: some Windows App SDK files declare more languages than the column holds; it only
          breaks ties between files of equal version. ICE57: the Start menu entry's key path is in
          HKMU, which follows the scope chosen at install time; the check cannot know that. -->
@@ -28,5 +29,70 @@
   <ItemGroup>
     <PackageReference Remove="MinVer" />
   </ItemGroup>
+
+  <!-- The license page's text: the LICENSE.md and ThirdPartyNotices.txt being installed, as RTF. -->
+  <Target Name="WriteLicenseRtf" BeforeTargets="CoreCompile">
+    <WriteLicenseRtf Sources="$(AppFolderFull)\LICENSE.md;$(AppFolderFull)\ThirdPartyNotices.txt" Output="$(LicenseRtf)" />
+  </Target>
+
+  <!-- Hard-wrapped lines are joined into paragraphs, so the text fits the page's width. A Markdown
+       heading or a notice's title between ==== lines is bold, and other characters RTF does not
+       take as they are are escaped. -->
+  <UsingTask TaskName="WriteLicenseRtf" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Sources ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Output Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        static string Escape(string text)
+        {
+            var b = new StringBuilder();
+            foreach (var c in text)
+            {
+                if (c == '\\' || c == '{' || c == '}') b.Append('\\').Append(c);
+                else if (c > 127) b.Append("\\u").Append((int)(short)c).Append('?');
+                else b.Append(c);
+            }
+            return b.ToString();
+        }
+
+        var rtf = new StringBuilder(@"{\rtf1\ansi\deff0{\fonttbl{\f0 Segoe UI;}}\fs16 ");
+        var paragraph = new StringBuilder();
+        void EndParagraph()
+        {
+            if (paragraph.Length > 0) rtf.Append(paragraph).Append(@"\par\par ");
+            paragraph.Clear();
+        }
+
+        foreach (var source in Sources)
+        {
+            var title = false;
+            foreach (var raw in File.ReadAllLines(source.ItemSpec))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0) { EndParagraph(); continue; }
+                if (line.Trim('=').Length == 0) { EndParagraph(); title = !title; continue; }
+                if (line.StartsWith("# "))
+                {
+                    EndParagraph();
+                    paragraph.Append(@"\b ").Append(Escape(line.Substring(2))).Append(@"\b0 ");
+                    EndParagraph();
+                    continue;
+                }
+                if (paragraph.Length > 0) paragraph.Append(' ');
+                paragraph.Append(title ? @"\b " + Escape(line) + @"\b0" : Escape(line));
+            }
+            EndParagraph();
+        }
+        rtf.Append('}');
+
+        Directory.CreateDirectory(Path.GetDirectoryName(Output));
+        File.WriteAllText(Output, rtf.ToString(), Encoding.ASCII);
+      ]]></Code>
+    </Task>
+  </UsingTask>
 
 </Project>

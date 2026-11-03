@@ -53,3 +53,9 @@ Requirements: Windows 10 version 1809 or later, x64.
 ## Building
 
 See [docs/development.md](docs/development.md) for building, testing and releasing COMrade.
+
+## License
+
+COMrade is released under the [MIT License](LICENSE.md). The release files also include third-party
+components under their own licenses, listed in
+[ThirdPartyNotices.txt](COMrade/ThirdPartyNotices.txt).

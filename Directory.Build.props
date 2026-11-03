@@ -13,6 +13,12 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
+  <!-- MIT, see LICENSE.md. The copyright shows in each file's properties and in any NuGet package. -->
+  <PropertyGroup>
+    <Copyright>Copyright (c) 2026 Antonio Vazquez</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="all" />
   </ItemGroup>

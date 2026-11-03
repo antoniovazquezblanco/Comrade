@@ -1,6 +1,8 @@
 <!--
-  The installer's pages: Welcome, then who to install for, then Install. Built from the WiX UI
-  extension's dialogs; WixUI_Advanced also asks to accept a license, which COMrade does not have.
+  The installer's pages: Welcome, then the license, then who to install for, then Install. Built
+  from the WiX UI extension's dialogs. The license page shows COMrade's MIT license and the notices
+  of the components installed with it, the same LICENSE.md and ThirdPartyNotices.txt that are
+  installed next to COMrade.exe; it asks to accept them, as the Windows App SDK's terms require.
   The scope page shows its choice only to administrators: other users install just for themselves.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
@@ -9,6 +11,8 @@
          (493x312) is the side picture of Welcome and Finish. Both are drawn from COMrade.ico. -->
     <WixVariable Id="WixUIBannerBmp" Value="$(sys.SOURCEFILEDIR)Assets\Banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="$(sys.SOURCEFILEDIR)Assets\Dialog.bmp" />
+    <!-- Written by the WriteLicenseRtf target of COMrade.Installer.wixproj. -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(LicenseRtf)" />
 
     <WixVariable Id="WixUISupportPerUser" Value="1" />
     <WixVariable Id="WixUISupportPerMachine" Value="1" />
@@ -34,15 +38,21 @@
       <DialogRef Id="ResumeDlg" />
       <DialogRef Id="UserExit" />
       <DialogRef Id="WelcomeDlg" />
+      <DialogRef Id="LicenseAgreementDlg" />
       <DialogRef Id="InstallScopeDlg" />
 
       <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
 
-      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallScopeDlg" Condition="NOT Installed" />
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg" Condition="NOT Installed" />
       <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Condition="Installed AND PATCH" />
 
+      <!-- Next stays disabled until the license is accepted. -->
+      <Publish Dialog="LicenseAgreementDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" />
+      <Publish Dialog="LicenseAgreementDlg" Control="Print" Event="DoAction" Value="WixUIPrintEula_$(sys.BUILDARCHSHORT)" />
+      <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="InstallScopeDlg" Condition="LicenseAccepted = &quot;1&quot;" />
+
       <!-- Per-user is MSIINSTALLPERUSER=1 with ALLUSERS=2; clearing it installs for all users. -->
-      <Publish Dialog="InstallScopeDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" />
+      <Publish Dialog="InstallScopeDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg" />
       <Publish Dialog="InstallScopeDlg" Control="Next" Property="WixAppFolder" Value="WixPerUserFolder" Order="1" Condition="NOT Privileged" />
       <Publish Dialog="InstallScopeDlg" Control="Next" Property="MSIINSTALLPERUSER" Value="1" Order="2" Condition="WixAppFolder = &quot;WixPerUserFolder&quot;" />
       <Publish Dialog="InstallScopeDlg" Control="Next" Property="MSIINSTALLPERUSER" Value="{}" Order="3" Condition="WixAppFolder = &quot;WixPerMachineFolder&quot;" />

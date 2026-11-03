@@ -199,6 +199,9 @@ public sealed partial class SettingsTabViewModel : TabViewModel
 
     public Uri IssuesUri { get; } = new("https://github.com/antoniovazquezblanco/Comrade/issues");
 
+    // Online rather than the LICENSE.md next to COMrade.exe: Windows has no default app for .md files.
+    public Uri LicenseUri { get; } = new("https://github.com/antoniovazquezblanco/Comrade/blob/main/LICENSE.md");
+
     [RelayCommand]
     private void Forget(string key) => _devices.Forget(key);
 

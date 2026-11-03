@@ -5,6 +5,7 @@
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
     <File Path="SECURITY.md" />
+    <File Path="LICENSE.md" />
     <File Path="Directory.Build.props" />
     <File Path="global.json" />
     <File Path="nuget.config" />

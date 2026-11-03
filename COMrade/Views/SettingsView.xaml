@@ -259,6 +259,7 @@
                         <StackPanel Margin="-12,4,0,0" Orientation="Horizontal">
                             <HyperlinkButton Content="Repository" NavigateUri="{x:Bind ViewModel.RepositoryUri}" />
                             <HyperlinkButton Content="Report an issue" NavigateUri="{x:Bind ViewModel.IssuesUri}" />
+                            <HyperlinkButton Content="MIT License" NavigateUri="{x:Bind ViewModel.LicenseUri}" />
                             <HyperlinkButton Command="{x:Bind ViewModel.OpenThirdPartyNoticesCommand}" Content="Third-party notices" />
                         </StackPanel>
                     </StackPanel>
