@@ -96,6 +96,38 @@ public class SerialConnectionTests
         Assert.Equal(sent, received);
     }
 
+    [Fact]
+    public async Task Discarding_input_drops_what_arrived_but_was_not_read()
+    {
+        await using var connection = await SerialConnection.OpenAsync(TestPorts.Loopback, SerialSettings.Default, ControlLines.Default, Cancellation);
+        await connection.WriteAsync("dropped"u8.ToArray(), Cancellation);
+        await Task.Delay(200, Cancellation);
+
+        connection.DiscardInput();
+        await connection.WriteAsync("kept"u8.ToArray(), Cancellation);
+
+        Assert.Equal("kept"u8.ToArray(), await ReadExactlyAsync(connection, 4, TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task Detection_on_a_loopback_port_finds_the_speed_it_hears_text_at()
+    {
+        await using var connection = await SerialConnection.OpenAsync(TestPorts.Loopback, SerialSettings.Default, ControlLines.Default, Cancellation);
+        var speed = 0;
+
+        // The port talks to itself, so text sent comes back at any speed: send it at one speed only.
+        var detection = await BaudRateDetector.DetectAsync(
+            connection,
+            SerialSettings.Default,
+            wake: () => speed == 57600 ? "U-Boot 2020.01 (Jan 06 2020)\r\n=> "u8.ToArray() : ReadOnlyMemory<byte>.Empty,
+            new SynchronousProgress(baudRate => speed = baudRate),
+            TimeProvider.System,
+            Cancellation);
+
+        Assert.Equal(57600, detection.BaudRate);
+        Assert.Equal(57600, speed);
+    }
+
     private static async Task<byte[]> ReadExactlyAsync(ISerialConnection connection, int length, TimeSpan timeout)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Cancellation);
@@ -106,5 +138,11 @@ public class SerialConnectionTests
         while (total < length)
             total += await connection.ReadAsync(received.AsMemory(total), deadline.Token);
         return received;
+    }
+
+    // Reported on the detection's thread, before it sends and listens at the speed.
+    private sealed class SynchronousProgress(Action<int> report) : IProgress<int>
+    {
+        public void Report(int value) => report(value);
     }
 }

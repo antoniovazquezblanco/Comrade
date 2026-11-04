@@ -35,7 +35,28 @@
                         </Flyout.FlyoutPresenterStyle>
                         <!-- A flyout is at most 456 wide, its padding and border included. -->
                         <StackPanel Width="416" Spacing="12">
-                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.Header, Mode=OneWay}" />
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.Header, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <!-- Here rather than in the form: the new-device defaults of the settings page have no device to listen to. -->
+                                <Button
+                                    Grid.Column="1"
+                                    Click="OnDetectSpeedClick"
+                                    IsEnabled="{x:Bind ViewModel.CanDetectSpeed, Mode=OneWay}"
+                                    ToolTipService.ToolTip="Listen to the device at each common speed and keep the one its output reads as text at">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon FontSize="14" Glyph="&#xEC4A;" />
+                                        <TextBlock Text="Detect speed" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
                             <views:DeviceSettingsForm Editor="{x:Bind ViewModel.Editor}" />
                         </StackPanel>
                     </Flyout>
@@ -118,6 +139,30 @@
                     <Button Command="{x:Bind ViewModel.OpenCommand}" Content="Try again" />
                 </InfoBar.ActionButton>
             </InfoBar>
+            <InfoBar
+                Title="Detecting the speed"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.IsDetectingSpeed, Mode=OneWay}"
+                Message="{x:Bind ViewModel.DetectingSpeedText, Mode=OneWay}"
+                Severity="Informational">
+                <InfoBar.ActionButton>
+                    <Button Command="{x:Bind ViewModel.StopDetectingSpeedCommand}" Content="Stop" />
+                </InfoBar.ActionButton>
+                <CheckBox
+                    Margin="0,0,0,8"
+                    Content="Press Enter at each speed, for a device waiting at a prompt"
+                    IsChecked="{x:Bind ViewModel.PressEnterWhileDetecting, Mode=TwoWay}" />
+            </InfoBar>
+            <InfoBar
+                Title="{x:Bind ViewModel.SpeedDetectedTitle, Mode=OneWay}"
+                IsOpen="{x:Bind ViewModel.ShowSpeedDetectedBar, Mode=TwoWay}"
+                Message="COMrade keeps this speed for the device."
+                Severity="Success" />
+            <InfoBar
+                Title="{x:Bind ViewModel.SpeedNotDetectedTitle, Mode=OneWay}"
+                IsOpen="{x:Bind ViewModel.ShowSpeedNotDetectedBar, Mode=TwoWay}"
+                Message="{x:Bind ViewModel.SpeedNotDetectedMessage, Mode=OneWay}"
+                Severity="Warning" />
             <InfoBar
                 Title="The driver rejected these settings"
                 IsOpen="{x:Bind ViewModel.ShowSettingsRejectedBar, Mode=TwoWay}"

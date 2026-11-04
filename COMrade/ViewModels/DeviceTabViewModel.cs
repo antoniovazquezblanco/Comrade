@@ -42,6 +42,11 @@ public sealed partial class DeviceTabViewModel : TabViewModel
     private readonly AppSettingsStore _appSettings;
     private SessionLog? _log;
     private string? _logError;
+    private CancellationTokenSource? _detection;
+    private int? _listeningAt;
+    private bool _pressEnterWhileDetecting;
+    private int? _detectedBaudRate;
+    private BaudRateDetectionOutcome? _detectionProblem;
 
     public DeviceTabViewModel(PortSession session, DeviceSettings settings, DeviceSettingsStore store, AppSettingsStore appSettings, TimeProvider? time = null)
     {
@@ -253,6 +258,118 @@ public sealed partial class DeviceTabViewModel : TabViewModel
     [RelayCommand]
     private void Clear() => ClearRequested?.Invoke(this, EventArgs.Empty);
 
+    // Speed detection: the device is listened to at one common speed after another, see BaudRateDetector.
+
+    public bool IsDetectingSpeed => _detection is not null;
+
+    /// <summary>Detect speed opens the port first when it is closed.</summary>
+    public bool CanDetectSpeed => _detection is null && _state is not (PortSessionState.Opening or PortSessionState.Waiting);
+
+    public string DetectingSpeedText => _listeningAt is { } baudRate
+        ? $"Listening at {baudRate} baud. The device has to print text meanwhile: if it is quiet, reset it."
+        : "The device has to print text meanwhile: if it is quiet, reset it.";
+
+    /// <summary>Sends Enter at each speed tried, for a device that waits at a prompt; can change while detecting.</summary>
+    public bool PressEnterWhileDetecting
+    {
+        get => _pressEnterWhileDetecting;
+        set => SetProperty(ref _pressEnterWhileDetecting, value);
+    }
+
+    public bool ShowSpeedDetectedBar
+    {
+        get => _detectedBaudRate is not null;
+        set
+        {
+            if (!value && _detectedBaudRate is not null)
+            {
+                _detectedBaudRate = null;
+                OnPropertyChanged(nameof(ShowSpeedDetectedBar));
+            }
+        }
+    }
+
+    public string SpeedDetectedTitle => $"{_detectedBaudRate} baud detected";
+
+    public bool ShowSpeedNotDetectedBar
+    {
+        get => _detectionProblem is not null;
+        set
+        {
+            if (!value && _detectionProblem is not null)
+            {
+                _detectionProblem = null;
+                OnPropertyChanged(nameof(ShowSpeedNotDetectedBar));
+            }
+        }
+    }
+
+    public string SpeedNotDetectedTitle => _detectionProblem is BaudRateDetectionOutcome.Silent
+        ? "COMrade heard nothing from the device"
+        : "The device's output read as text at no speed";
+
+    public string SpeedNotDetectedMessage => _detectionProblem is BaudRateDetectionOutcome.Silent
+        ? "Detection needs the device to print text while COMrade listens. Reset it so it prints its boot log, or press Enter at each speed. Check the wiring too: the device's TX to the adapter's RX, and ground to ground."
+        : "The device sent data, but none of the common speeds made it readable. Check the data bits and parity; the device may also not send text at all.";
+
+    /// <summary>Detect speed: opens the port if needed, then keeps the speed the device's output reads as text at.</summary>
+    [RelayCommand]
+    private async Task DetectSpeedAsync()
+    {
+        if (_detection is not null)
+            return;
+
+        _detectedBaudRate = null;
+        _detectionProblem = null;
+        if (Session.State is not PortSessionState.Open)
+            await OpenAsync();
+        if (Session.State is not PortSessionState.Open)
+        {
+            OnPropertyChanged(string.Empty);
+            return;
+        }
+
+        using var detection = new CancellationTokenSource();
+        _detection = detection;
+        _listeningAt = null;
+        OnPropertyChanged(string.Empty);
+
+        var progress = new Progress<int>(baudRate =>
+        {
+            _listeningAt = baudRate;
+            OnPropertyChanged(nameof(DetectingSpeedText));
+        });
+        BaudRateDetection result;
+        try
+        {
+            result = await Session.DetectBaudRateAsync(PressEnter, progress, detection.Token);
+        }
+        finally
+        {
+            _detection = null;
+        }
+
+        if (result.BaudRate is { } baudRate)
+        {
+            // Saved for the device and shown in the toolbar, like a speed chosen by hand.
+            await Editor.ChangeAsync(Settings with { Serial = Settings.Serial with { BaudRate = baudRate } });
+            _detectedBaudRate = baudRate;
+        }
+        else if (result.Outcome is not BaudRateDetectionOutcome.Stopped)
+        {
+            _detectionProblem = result.Outcome;
+        }
+
+        OnPropertyChanged(string.Empty);
+    }
+
+    [RelayCommand]
+    private void StopDetectingSpeed() => _detection?.Cancel();
+
+    // Asked at each speed, from the detection's thread.
+    private ReadOnlyMemory<byte> PressEnter() =>
+        _pressEnterWhileDetecting ? KeyboardInput.Encode("\r", Session.Settings.SendLineEnding) : ReadOnlyMemory<byte>.Empty;
+
     // Logging: what the terminal shows, to a file, while the toolbar's Log is on.
 
     public bool IsLogging
@@ -363,6 +480,7 @@ public sealed partial class DeviceTabViewModel : TabViewModel
 
     public override void Dispose()
     {
+        _detection?.Cancel();
         _appSettings.Changed -= OnAppSettingsChanged;
         History.Written -= OnHistoryWritten;
         StopLog();

@@ -37,29 +37,15 @@ other control keys devices use.
 
 ### AI assistants
 
-AI assistants such as Claude Code can use your serial devices through COMrade over the
-[Model Context Protocol](https://modelcontextprotocol.io) (MCP). They can list and open ports, send
-commands and wait for the replies, read the output, and drive DTR, RTS and break. They can also
-rename, clear and log tabs. Everything they do happens in COMrade's tabs, where you see it and can
-type at any time.
+AI assistants can use your serial devices through COMrade over the [Model Context Protocol](https://modelcontextprotocol.io) (MCP).
+They can list and open ports, send commands and wait for the replies, read the output, and drive DTR, RTS and break.
+They can also rename, clear and log tabs.
+Everything they do happens in COMrade's tabs, where you see it and can type at any time.
 
 AI access is off until you turn it on in Settings, under AI assistants:
 
 - **Per tab**: assistants may use only the devices whose tab has **MCP** turned on in its toolbar.
 - **All ports**: assistants may open and use any port.
-
-Then add COMrade to your assistant. The settings page shows how for Claude Code, Claude Desktop,
-VS Code, Visual Studio, Cursor, Codex and Gemini CLI, with your paths filled in and a Copy button.
-For Claude Code, installed just for you:
-
-```powershell
-claude mcp add --scope user comrade -- "$env:LOCALAPPDATA\Programs\COMrade\COMrade.Mcp.exe"
-```
-
-Every MCP client starts the same program, `COMrade.Mcp.exe`, which sits next to `COMrade.exe`. It
-starts COMrade if it is not running, and talks to it over a pipe that only your Windows user can
-open, from this computer only. Assistants read what your devices print, and a device can print text
-meant to mislead them, so let them use only devices whose output you trust.
 
 ## Download
 

@@ -30,6 +30,8 @@ public sealed class PortSession : IAsyncDisposable
     private Task _deviceEvents = Task.CompletedTask;
     private ISerialConnection? _connection;
     private CancellationTokenSource? _readCancellation;
+    private Task _readLoop = Task.CompletedTask;
+    private bool _isDetecting;
     private long _bytesReceived;
     private long _bytesSent;
     private volatile bool _isDevicePresent;
@@ -215,6 +217,78 @@ public sealed class PortSession : IAsyncDisposable
     }
 
     /// <summary>
+    /// Finds the speed the device talks at (see <see cref="BaudRateDetector"/>) and keeps it on the
+    /// open port; what the device sent at that speed is then reported as received. Meanwhile the
+    /// detection reads the port, so nothing is reported, and settings applied wait for it to end.
+    /// </summary>
+    /// <param name="wake">Bytes to send at each speed, see <see cref="BaudRateDetector.DetectAsync"/>; counted as sent.</param>
+    /// <returns>
+    /// <see cref="BaudRateDetection.Stopped"/> when the port is not open, closes or fails, or
+    /// <paramref name="cancellationToken"/> is cancelled.
+    /// </returns>
+    public async Task<BaudRateDetection> DetectBaudRateAsync(
+        Func<ReadOnlyMemory<byte>>? wake = null,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ISerialConnection connection;
+        Task readLoop;
+        CancellationToken lifetime;
+        await _gate.WaitAsync();
+        try
+        {
+            if (_connection is null || _readCancellation is null || _isDetecting)
+                return BaudRateDetection.Stopped;
+
+            // The read loop stops and the detection reads in its place. Closing the port cancels
+            // the new token, as it would have cancelled the read loop's.
+            connection = _connection;
+            readLoop = _readLoop;
+            var stopReading = _readCancellation;
+            _readCancellation = new CancellationTokenSource();
+            lifetime = _readCancellation.Token;
+            stopReading.Cancel();
+            _isDetecting = true;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        var detection = BaudRateDetection.Stopped;
+        SerialPortError? failure = null;
+        try
+        {
+            // Outside the gate: a read loop that has just failed takes it to report the lost connection.
+            await readLoop.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+
+            // Off the caller's thread: each change of speed is a driver call that can take a moment.
+            using var stop = CancellationTokenSource.CreateLinkedTokenSource(lifetime, cancellationToken);
+            var settings = Settings;
+            detection = await Task.Run(
+                () => BaudRateDetector.DetectAsync(connection, settings, CountAsSent(wake), progress, _time, stop.Token),
+                CancellationToken.None);
+        }
+        catch (SerialPortException ex) when (!lifetime.IsCancellationRequested)
+        {
+            failure = ex.Error;
+        }
+        catch (SerialPortException)
+        {
+            // The session closed the port while the detection was reading.
+        }
+        finally
+        {
+            // Also after an unexpected error, so that the port does not stay without a read loop.
+            detection = await ResumeReadingAsync(connection, failure is null ? detection : null);
+        }
+
+        if (failure is { } error)
+            await ConnectionLostAsync(connection, error);
+        return detection;
+    }
+
+    /// <summary>
     /// Changes the line settings, on the open port if there is one. Returns false, keeping the
     /// previous settings, when the driver rejects them.
     /// </summary>
@@ -223,7 +297,8 @@ public sealed class PortSession : IAsyncDisposable
         await _gate.WaitAsync();
         try
         {
-            if (_connection is not null)
+            // While detecting, the detection sets the port's speed; these settings apply when it ends.
+            if (_connection is not null && !_isDetecting)
             {
                 try
                 {
@@ -276,10 +351,60 @@ public sealed class PortSession : IAsyncDisposable
         OpenedAt = _time.GetUtcNow();
         SetState(PortSessionState.Open);
 
-        var cancellation = _readCancellation.Token;
-        _ = Task.Run(() => ReadLoopAsync(connection, cancellation));
+        StartReading(connection, _readCancellation.Token);
         return null;
     }
+
+    // The read loop takes over from the detection again, at the detected speed. Without a detection
+    // (the port failed) or once the port closed, it does not, and the detection counts as stopped.
+    private async Task<BaudRateDetection> ResumeReadingAsync(ISerialConnection connection, BaudRateDetection? detection)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            _isDetecting = false;
+            if (detection is null || _connection != connection || _readCancellation is not { } cancellation)
+                return BaudRateDetection.Stopped;
+
+            detection = KeepBaudRate(connection, detection);
+            StartReading(connection, cancellation.Token, detection.Output);
+            return detection;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    // Must be called holding the gate. The port goes to the detected speed, or back to the
+    // session's settings, which may have changed during the detection.
+    private BaudRateDetection KeepBaudRate(ISerialConnection connection, BaudRateDetection detection)
+    {
+        var settings = detection.BaudRate is { } baudRate ? Settings with { BaudRate = baudRate } : Settings;
+        try
+        {
+            connection.ApplySettings(settings);
+            Settings = settings;
+            return detection;
+        }
+        catch (SerialPortException ex)
+        {
+            LastError = ex.Error;
+            return BaudRateDetection.Stopped;
+        }
+    }
+
+    // Bytes the detection sends count as sent, like typed ones.
+    private Func<ReadOnlyMemory<byte>>? CountAsSent(Func<ReadOnlyMemory<byte>>? wake) => wake is null ? null : () =>
+    {
+        var bytes = wake();
+        Interlocked.Add(ref _bytesSent, bytes.Length);
+        return bytes;
+    };
+
+    // Must be called holding the gate. Reports first, when given, before anything read.
+    private void StartReading(ISerialConnection connection, CancellationToken cancellation, byte[]? first = null) =>
+        _readLoop = Task.Run(() => ReadLoopAsync(connection, first, cancellation));
 
     // Must be called holding the gate.
     private async Task DisconnectAsync()
@@ -308,8 +433,11 @@ public sealed class PortSession : IAsyncDisposable
         }
     }
 
-    private async Task ReadLoopAsync(ISerialConnection connection, CancellationToken cancellation)
+    private async Task ReadLoopAsync(ISerialConnection connection, byte[]? first, CancellationToken cancellation)
     {
+        if (first is { Length: > 0 })
+            Report(first);
+
         var buffer = new byte[ReadBufferSize];
         try
         {
@@ -319,10 +447,7 @@ public sealed class PortSession : IAsyncDisposable
                 if (cancellation.IsCancellationRequested)
                     return;
 
-                Interlocked.Add(ref _bytesReceived, count);
-                var data = buffer[..count];
-                Received.Append(data);
-                DataReceived?.Invoke(this, data);
+                Report(buffer[..count]);
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -354,6 +479,13 @@ public sealed class PortSession : IAsyncDisposable
         {
             _gate.Release();
         }
+    }
+
+    private void Report(byte[] data)
+    {
+        Interlocked.Add(ref _bytesReceived, data.Length);
+        Received.Append(data);
+        DataReceived?.Invoke(this, data);
     }
 
     private void OnModemLinesChanged(object? sender, EventArgs e) => ModemLinesChanged?.Invoke(this, EventArgs.Empty);

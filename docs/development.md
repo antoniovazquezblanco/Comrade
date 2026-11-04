@@ -86,7 +86,7 @@ take servers: check the steps against their documentation when one reports a pro
 | Project | Contents |
 |---|---|
 | `COMrade` | WinUI 3 app: windows, views, view models, the terminal control host |
-| `COMrade.Core` | No UI: port discovery and device identity, serial connection, port sessions with automatic reopen, settings stores, terminal line endings, the MCP server for AI assistants |
+| `COMrade.Core` | No UI: port discovery and device identity, serial connection, speed detection, port sessions with automatic reopen, settings stores, terminal line endings, the MCP server for AI assistants |
 | `COMrade.Mcp` | The MCP relay AI clients start (`COMrade.Mcp.exe`), built and published next to `COMrade.exe` |
 | `COMrade.Core.Tests` | xUnit unit tests with fakes and a fake clock |
 | `COMrade.IntegrationTests` | Tests against real serial ports |
