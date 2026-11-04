@@ -71,6 +71,13 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
 
     private void OnClearRequested(object? sender, EventArgs e) => _terminal.Clear();
 
+    // The flyout closes so the tab shows the detection and what the device prints.
+    private void OnDetectSpeedClick(object sender, RoutedEventArgs e)
+    {
+        PortButton.Flyout.Hide();
+        ViewModel.DetectSpeedCommand.Execute(null);
+    }
+
     // Typing can start as soon as the port opens.
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

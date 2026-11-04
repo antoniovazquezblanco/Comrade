@@ -84,6 +84,18 @@ public sealed class SerialConnection : ISerialConnection
         }
     }
 
+    public void DiscardInput()
+    {
+        try
+        {
+            _port.DiscardInBuffer();
+        }
+        catch (Exception ex) when (SerialPortErrors.IsPortFailure(ex))
+        {
+            throw SerialPortErrors.ToException(ex, _portName, opening: false);
+        }
+    }
+
     public void SetControlLines(ControlLines lines)
     {
         try

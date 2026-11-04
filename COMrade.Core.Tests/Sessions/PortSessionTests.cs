@@ -412,6 +412,85 @@ public class PortSessionTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Detection_keeps_the_devices_speed_and_shows_what_it_printed()
+    {
+        var prompt = "\r\nPlease press Enter to activate this console.\r\n"u8.ToArray();
+        var received = new List<byte>();
+        _session.DataReceived += (_, data) => { lock (received) received.AddRange(data); };
+        await _session.OpenAsync();
+        _driver.Current.DeviceBaudRate = 9600;
+        _driver.Current.Prompt = prompt;
+
+        var detect = _session.DetectBaudRateAsync(wake: () => "\r"u8.ToArray(), cancellationToken: TestContext.Current.CancellationToken);
+        await AdvanceTimeUntilAsync(() => detect.IsCompleted);
+
+        Assert.Equal(9600, (await detect).BaudRate);
+        Assert.Equal(9600, _session.Settings.BaudRate);
+        Assert.Equal(9600, _driver.Current.Settings.BaudRate);
+        Assert.Equal(2, _session.BytesSent);
+
+        // Reading goes on at the detected speed, after what the device printed while detecting.
+        await _session.SendAsync("\r"u8.ToArray());
+        await WaitForAsync(() => _session.BytesReceived == prompt.Length * 2);
+        lock (received)
+            Assert.Equal([.. prompt, .. prompt], received);
+    }
+
+    [Fact]
+    public async Task Detection_needs_an_open_port()
+    {
+        Assert.Equal(BaudRateDetection.Stopped, await _session.DetectBaudRateAsync(cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Empty(_driver.Connections);
+    }
+
+    [Fact]
+    public async Task Closing_the_port_stops_the_detection()
+    {
+        await _session.OpenAsync();
+        var tried = new RecordingProgress<int>();
+        var detect = _session.DetectBaudRateAsync(progress: tried, cancellationToken: TestContext.Current.CancellationToken);
+        await WaitForAsync(() => tried.Values.Length > 0);
+
+        await _session.CloseAsync();
+
+        Assert.Equal(BaudRateDetection.Stopped, await detect.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        Assert.Equal(PortSessionState.Closed, _session.State);
+    }
+
+    [Fact]
+    public async Task Port_failing_during_detection_is_a_lost_connection()
+    {
+        await _session.OpenAsync();
+        var tried = new RecordingProgress<int>();
+        var detect = _session.DetectBaudRateAsync(progress: tried, cancellationToken: TestContext.Current.CancellationToken);
+        await WaitForAsync(() => tried.Values.Length > 0);
+
+        _driver.Current.Fail(SerialPortError.DeviceRemoved);
+
+        Assert.Equal(BaudRateDetection.Stopped, await detect.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        Assert.Equal(PortSessionState.Waiting, _session.State);
+    }
+
+    [Fact]
+    public async Task Settings_applied_while_detecting_take_effect_when_it_ends()
+    {
+        await _session.OpenAsync();
+        using var cancellation = new CancellationTokenSource();
+        var tried = new RecordingProgress<int>();
+        var detect = _session.DetectBaudRateAsync(progress: tried, cancellationToken: cancellation.Token);
+        await WaitForAsync(() => tried.Values.Length > 0);
+        var even = SerialSettings.Default with { Parity = Parity.Even };
+
+        Assert.True(await _session.ApplySettingsAsync(even));
+        Assert.Equal(Parity.None, _driver.Current.Settings.Parity);
+
+        await cancellation.CancelAsync();
+        Assert.Equal(BaudRateDetection.Stopped, await detect.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        Assert.Equal(even, _session.Settings);
+        Assert.Equal(even, _driver.Current.Settings);
+    }
+
+    [Fact]
     public async Task Close_gives_up_on_a_driver_that_never_finishes_closing()
     {
         _driver.HangOnClose = true;

@@ -18,8 +18,9 @@ public sealed partial class DeviceSettingsEditor(DeviceSettings settings, Func<D
     private static readonly int[] DataBitsValues = [8, 7, 6, 5];
     private static readonly LineEnding[] SendLineEndingValues = [LineEnding.Cr, LineEnding.Lf, LineEnding.CrLf];
 
+    // Every speed detection tries is listed: the form shows a speed only when it is.
     public static IReadOnlyList<string> BaudRateOptions { get; } =
-        ["300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600", "1000000", "2000000"];
+        ["300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "74880", "115200", "230400", "250000", "460800", "500000", "921600", "1000000", "1500000", "2000000"];
 
     public static IReadOnlyList<string> DataBitsOptions { get; } = ["8", "7", "6", "5"];
 

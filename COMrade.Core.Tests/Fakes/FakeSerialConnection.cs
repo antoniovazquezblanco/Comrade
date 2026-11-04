@@ -3,10 +3,17 @@ using COMrade.Core.Serial;
 
 namespace COMrade.Core.Tests.Fakes;
 
-/// <summary>Simulated open serial port: the test feeds received bytes, failures and close behaviour.</summary>
+/// <summary>
+/// Simulated open serial port: the test feeds received bytes, failures and close behaviour, and
+/// can simulate the device on the other end talking at a speed of its own.
+/// </summary>
 internal sealed class FakeSerialConnection(string portName, SerialSettings settings, ControlLines lines, bool hangOnClose) : ISerialConnection
 {
+    // What text sent at one speed looks like read at another: bytes text never holds.
+    private static readonly byte[] Garbage = [0x00, 0xFE, 0x80, 0xF8];
+
     private readonly Channel<byte[]> _incoming = Channel.CreateUnbounded<byte[]>();
+    private readonly Queue<byte[]> _talk = new();
     private readonly List<byte> _written = [];
 
     public string PortName { get; } = portName;
@@ -24,6 +31,15 @@ internal sealed class FakeSerialConnection(string portName, SerialSettings setti
 
     public bool RejectSettings { get; set; }
 
+    /// <summary>Speeds the driver refuses.</summary>
+    public HashSet<int> UnsupportedBaudRates { get; } = [];
+
+    /// <summary>The speed the device talks at: read at any other, what it sends comes out as garbage. Null for any speed.</summary>
+    public int? DeviceBaudRate { get; set; }
+
+    /// <summary>What the device answers to Enter received at its speed, such as its prompt.</summary>
+    public byte[]? Prompt { get; set; }
+
     public bool FailWrites { get; set; }
 
     public bool IsDisposed { get; private set; }
@@ -40,6 +56,19 @@ internal sealed class FakeSerialConnection(string portName, SerialSettings setti
     /// <summary>Simulates bytes arriving from the device.</summary>
     public void Receive(params byte[] data) => _incoming.Writer.TryWrite(data);
 
+    /// <summary>
+    /// Simulates the device printing <paramref name="text"/> <paramref name="times"/> times without
+    /// a pause, as in a boot log: each read returns it once, however long since the last read.
+    /// </summary>
+    public void Talk(byte[] text, int times)
+    {
+        lock (_talk)
+        {
+            for (var i = 0; i < times; i++)
+                _talk.Enqueue(text);
+        }
+    }
+
     /// <summary>Simulates the device changing its input lines.</summary>
     public void ChangeModemLines(ModemLines lines)
     {
@@ -53,9 +82,14 @@ internal sealed class FakeSerialConnection(string portName, SerialSettings setti
 
     public async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var data = await _incoming.Reader.ReadAsync(cancellationToken);
+            byte[]? data;
+            lock (_talk)
+                _talk.TryDequeue(out data);
+
+            data = AsHeard(data ?? await _incoming.Reader.ReadAsync(cancellationToken));
             data.CopyTo(buffer);
             return data.Length;
         }
@@ -73,14 +107,24 @@ internal sealed class FakeSerialConnection(string portName, SerialSettings setti
 
         lock (_written)
             _written.AddRange(data.ToArray());
+
+        if (Prompt is { } prompt && IsAtDeviceSpeed && data.Span.IndexOfAny((byte)'\r', (byte)'\n') >= 0)
+            Receive(prompt);
         return ValueTask.CompletedTask;
     }
 
     public void ApplySettings(SerialSettings settings)
     {
-        if (RejectSettings)
+        if (RejectSettings || UnsupportedBaudRates.Contains(settings.BaudRate))
             throw new SerialPortException(SerialPortError.InvalidSettings, $"{PortName}: settings rejected");
         Settings = settings;
+    }
+
+    public void DiscardInput()
+    {
+        while (_incoming.Reader.TryRead(out _))
+        {
+        }
     }
 
     public void SetControlLines(ControlLines lines)
@@ -97,6 +141,11 @@ internal sealed class FakeSerialConnection(string portName, SerialSettings setti
         Breaks.Add(duration);
         return Task.CompletedTask;
     }
+
+    private bool IsAtDeviceSpeed => DeviceBaudRate is null || DeviceBaudRate == Settings.BaudRate;
+
+    private byte[] AsHeard(byte[] sent) =>
+        IsAtDeviceSpeed ? sent : [.. sent.Select((_, i) => Garbage[i % Garbage.Length])];
 
     public ValueTask DisposeAsync()
     {

@@ -19,6 +19,9 @@ public interface ISerialConnection : IAsyncDisposable
     /// <summary>Changes the line settings of the open port; on failure the previous settings stay in effect.</summary>
     void ApplySettings(SerialSettings settings);
 
+    /// <summary>Drops the bytes received but not read yet. Not while a read is waiting: it would abort it.</summary>
+    void DiscardInput();
+
     /// <summary>The input lines the device drives now.</summary>
     ModemLines ModemLines { get; }
 
