@@ -69,12 +69,18 @@ public sealed partial class TerminalView : UserControl
 
     public void FocusTerminal() => Term.Focus(FocusState.Programmatic);
 
-    /// <summary>Shows the newest output.</summary>
-    public void ScrollToBottom()
+    /// <summary>Shows the oldest output the scrollback keeps.</summary>
+    public void ScrollToTop() => Term.ScrollTo(0);
+
+    /// <summary>Scrolls by whole screens: up for negative <paramref name="pages"/>, down for positive.</summary>
+    public void ScrollPages(int pages)
     {
-        if (IsScrolledUp)
-            Term.ScrollToBottom();
+        if (_scrollBar is { } scrollBar)
+            Term.ScrollTo((int)scrollBar.Value + pages * Term.Rows);
     }
+
+    /// <summary>Shows the newest output.</summary>
+    public void ScrollToBottom() => Term.ScrollTo(int.MaxValue);
 
     /// <summary>Font, colours and cursor; applied at once, also to text already shown.</summary>
     public TerminalAppearance Appearance

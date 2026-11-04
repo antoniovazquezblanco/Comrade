@@ -78,7 +78,7 @@
                         BorderThickness="0"
                         AutomationProperties.Name="Settings"
                         Click="OnSettingsClick"
-                        ToolTipService.ToolTip="Settings (Ctrl+,)">
+                        ToolTipService.ToolTip="{x:Bind ViewModel.SettingsToolTip, Mode=OneWay}">
                         <FontIcon FontSize="12" Glyph="&#xE713;" />
                     </Button>
                     <Grid

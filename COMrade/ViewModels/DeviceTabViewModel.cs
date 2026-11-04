@@ -234,6 +234,10 @@ public sealed partial class DeviceTabViewModel : TabViewModel
     [RelayCommand]
     private Task CloseAsync() => Session.CloseAsync();
 
+    /// <summary>What the toolbar's Open port or Close port, whichever shows, does.</summary>
+    [RelayCommand]
+    private Task OpenOrCloseAsync() => CanClose ? CloseAsync() : CanOpen ? OpenAsync() : Task.CompletedTask;
+
     [RelayCommand]
     private void StartRename() => IsRenaming = true;
 

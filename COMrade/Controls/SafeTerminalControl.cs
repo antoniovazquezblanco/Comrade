@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using Microsoft.Terminal.Wpf;
 using Microsoft.UI.Xaml;
@@ -8,7 +9,7 @@ using Windows.Foundation;
 
 namespace COMrade.Controls;
 
-/// <summary>Windows Terminal's control with two crashes fixed and a way to scroll to the bottom.</summary>
+/// <summary>Windows Terminal's control with two crashes fixed and a way to scroll it.</summary>
 public sealed partial class SafeTerminalControl : TerminalControl
 {
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -38,16 +39,21 @@ public sealed partial class SafeTerminalControl : TerminalControl
     // other UI Automation client crashed the app as soon as they reached the terminal.
     protected override AutomationPeer OnCreateAutomationPeer() => new FrameworkElementAutomationPeer(this);
 
-    /// <summary>Shows the newest output, as dragging the scroll bar to its end does.</summary>
-    public void ScrollToBottom()
+    /// <summary>
+    /// Shows the scrollback from line <paramref name="top"/>, as dragging the scroll bar there does.
+    /// Any top past the last screen shows the newest output.
+    /// </summary>
+    public void ScrollTo(int top)
     {
-        if (_userScroll is null || FindName("scrollbar") is not ScrollBar scrollBar)
+        // Nothing to scroll before the terminal has been laid out.
+        if (_userScroll is null || Rows <= 0 || FindName("scrollbar") is not ScrollBar scrollBar)
             return;
 
-        scrollBar.Value = scrollBar.Maximum;
-        // Any top past the last screen shows the last screen. The scroll bar's maximum can lag
-        // behind output still being written, and would stop a few lines short.
-        _userScroll.Invoke(_container, [int.MaxValue]);
+        // The scroll bar keeps its value within its range. The terminal is told the top as asked:
+        // the scroll bar's maximum can lag behind output still being written, and would stop a
+        // few lines short of the newest.
+        scrollBar.Value = top;
+        _userScroll.Invoke(_container, [Math.Max(top, 0)]);
     }
 
     private void OnGettingFocus(UIElement sender, GettingFocusEventArgs args)

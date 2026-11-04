@@ -2,12 +2,16 @@ using System;
 using System.Globalization;
 using COMrade.Core.Ports;
 using COMrade.Core.Serial;
+using COMrade.Core.Shortcuts;
 
 namespace COMrade.ViewModels;
 
 /// <summary>Short texts shown for ports, settings and counters.</summary>
 public static class DisplayText
 {
+    /// <summary>For example "Settings (Ctrl+,)", or just the text when the shortcut has no keys.</summary>
+    public static string WithKeys(string text, KeyChord? keys) => keys is { } chord ? $"{text} ({chord})" : text;
+
     /// <summary>For example "115200 8N1 · CR".</summary>
     public static string Settings(SerialSettings settings) =>
         $"{settings.BaudRate} {settings.FrameNotation} · {LineEnding(settings.SendLineEnding)}";

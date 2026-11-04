@@ -1,5 +1,7 @@
 using COMrade.Core.Serial;
 using COMrade.Core.Settings;
+using COMrade.Core.Shortcuts;
+using Windows.System;
 
 namespace COMrade.Core.Tests.Settings;
 
@@ -78,5 +80,33 @@ public sealed class AppSettingsStoreTests : IDisposable
 
         Assert.Equal(TabMode.Compact, settings.TabMode);
         Assert.False(settings.NewDevice.ReopenAutomatically);
+    }
+
+    [Fact]
+    public void Changed_shortcuts_are_remembered()
+    {
+        var keymap = Keymap.Default.With(ShortcutAction.CloseTab, new KeyChord(VirtualKey.Q, Shift: true)).With(ShortcutAction.Copy, null);
+
+        new AppSettingsStore(FilePath).Save(AppSettings.Default with { Shortcuts = keymap.Changes });
+
+        // As written, for editing by hand.
+        Assert.Contains("\"CloseTab\": \"Ctrl+Shift+Q\"", File.ReadAllText(FilePath));
+        var read = new AppSettingsStore(FilePath).Current.Keymap;
+        Assert.Equal(new KeyChord(VirtualKey.Q, Shift: true), read.KeysFor(ShortcutAction.CloseTab));
+        Assert.Null(read.KeysFor(ShortcutAction.Copy));
+    }
+
+    [Fact]
+    public void Settings_saved_before_shortcuts_existed_get_the_default_shortcuts()
+    {
+        new AppSettingsStore(FilePath).Save(AppSettings.Default with { TabMode = TabMode.Scrolling });
+        var file = File.ReadAllText(FilePath);
+        Assert.Contains("\"shortcuts\": null", file);
+        File.WriteAllText(FilePath, file.Replace("\"shortcuts\": null", "\"unknown\": 0"));
+
+        var settings = new AppSettingsStore(FilePath).Current;
+
+        Assert.False(settings.Keymap.HasChanges);
+        Assert.Equal(TabMode.Scrolling, settings.TabMode);
     }
 }

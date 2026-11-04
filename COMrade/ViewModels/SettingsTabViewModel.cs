@@ -8,13 +8,16 @@ using System.Linq;
 using System.Threading.Tasks;
 using COMrade.Core.Mcp;
 using COMrade.Core.Settings;
+using COMrade.Core.Shortcuts;
 using COMrade.Core.Terminal;
 using COMrade.Core.Updates;
 using COMrade.Terminal;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
+using VirtualKey = Windows.System.VirtualKey;
 
 namespace COMrade.ViewModels;
 
@@ -27,6 +30,7 @@ public sealed partial class SettingsTabViewModel : TabViewModel
     private readonly McpPipeServer _mcp;
     private readonly DispatcherQueue _ui = DispatcherQueue.GetForCurrentThread();
     private int _mcpClientIndex;
+    private ShortcutAction? _recording;
 
     public SettingsTabViewModel(AppSettingsStore settings, DeviceSettingsStore devices, UpdateService updates, McpPipeServer mcp)
     {
@@ -35,6 +39,8 @@ public sealed partial class SettingsTabViewModel : TabViewModel
         _updates = updates;
         _mcp = mcp;
         NewDevice = new DeviceSettingsEditor(settings.Current.NewDevice, ApplyNewDeviceAsync);
+        var keymap = settings.Current.Keymap;
+        Shortcuts = [.. Keymap.Actions.Select(action => new ShortcutItem(action, keymap))];
 
         _devices.Changed += OnDevicesChanged;
         _updates.Changed += OnUpdatesChanged;
@@ -131,6 +137,114 @@ public sealed partial class SettingsTabViewModel : TabViewModel
     public IReadOnlyList<Color> PreviewPalette => [.. Appearance.Scheme.Palette.Select(ToColor)];
 
     private TerminalAppearance Appearance => _settings.Current.TerminalOrDefault;
+
+    // Shortcuts: the keys of each, changed by pressing the new ones.
+
+    public IReadOnlyList<ShortcutItem> Shortcuts { get; }
+
+    public bool CanRestoreDefaultShortcuts => Keymap.HasChanges;
+
+    /// <summary>
+    /// Whether a shortcut waits for its new keys. The window hands them to
+    /// <see cref="RecordShortcut"/>: its keyboard hook sees keys pressed with Ctrl before any control.
+    /// </summary>
+    public bool IsRecordingShortcut => _recording is not null;
+
+    /// <summary>What happened to the keys just pressed, when it needs telling.</summary>
+    [ObservableProperty]
+    public partial string? ShortcutNote { get; private set; }
+
+    [ObservableProperty]
+    public partial bool ShowShortcutNote { get; set; }
+
+    public void StartRecordingShortcut(ShortcutAction action)
+    {
+        _recording = action;
+        ShowShortcutNote = false;
+        RefreshShortcuts();
+    }
+
+    public void StopRecordingShortcut()
+    {
+        if (_recording is null)
+            return;
+        _recording = null;
+        ShowShortcutNote = false;
+        RefreshShortcuts();
+    }
+
+    /// <summary>Keys pressed with Ctrl while a shortcut waits; returns whether they were taken.</summary>
+    public bool RecordShortcut(VirtualKey key, bool shift)
+    {
+        if (_recording is not { } action || IsModifier(key))
+            return false;
+
+        if (KeyChord.From(key, shift) is { } keys)
+        {
+            _recording = null;
+            SetShortcut(action, keys);
+        }
+        else
+        {
+            ShowNote("That key cannot be in a shortcut. Use a letter, digit, function key, arrow, Tab, Space, Enter, Backspace, Insert, Delete, Home, End, Page Up, Page Down, comma, period, plus or minus.");
+        }
+        return true;
+    }
+
+    /// <summary>A key pressed without Ctrl while a shortcut waits.</summary>
+    public void RejectShortcutKey(VirtualKey key)
+    {
+        if (_recording is not null && !IsModifier(key))
+            ShowNote("Press the keys with Ctrl, for example Ctrl+Shift+T. Esc cancels.");
+    }
+
+    public void ResetShortcut(ShortcutAction action) => SetShortcut(action, Keymap.DefaultFor(action));
+
+    public void RemoveShortcut(ShortcutAction action) => SetShortcut(action, null);
+
+    [RelayCommand]
+    private void RestoreDefaultShortcuts()
+    {
+        ShowShortcutNote = false;
+        SaveKeymap(Keymap.Default);
+    }
+
+    private Keymap Keymap => _settings.Current.Keymap;
+
+    // Keys another shortcut had leave it without any, which is worth a word.
+    private void SetShortcut(ShortcutAction action, KeyChord? keys)
+    {
+        var keymap = Keymap;
+        if (keys is { } taken && keymap.ActionFor(taken) is { } previous && previous != action)
+            ShowNote($"\"{ShortcutItem.NameOf(previous)}\" had {taken} and has no shortcut now.");
+        else
+            ShowShortcutNote = false;
+        SaveKeymap(keymap.With(action, keys));
+    }
+
+    private void SaveKeymap(Keymap keymap)
+    {
+        _settings.Update(settings => settings with { Shortcuts = keymap.Changes });
+        RefreshShortcuts();
+    }
+
+    private void RefreshShortcuts()
+    {
+        var keymap = Keymap;
+        foreach (var item in Shortcuts)
+            item.Update(keymap, item.Action == _recording);
+        OnPropertyChanged(nameof(CanRestoreDefaultShortcuts));
+    }
+
+    private void ShowNote(string note)
+    {
+        ShortcutNote = note;
+        ShowShortcutNote = true;
+    }
+
+    private static bool IsModifier(VirtualKey key) => key is VirtualKey.Control or VirtualKey.Shift or VirtualKey.Menu
+        or VirtualKey.LeftControl or VirtualKey.RightControl or VirtualKey.LeftShift or VirtualKey.RightShift
+        or VirtualKey.LeftMenu or VirtualKey.RightMenu or VirtualKey.LeftWindows or VirtualKey.RightWindows;
 
     // Logging: where and how sessions are logged.
 
