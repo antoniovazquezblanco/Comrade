@@ -7,6 +7,7 @@ using COMrade.Core.Mcp;
 using COMrade.Core.Ports;
 using COMrade.Core.Sessions;
 using COMrade.Core.Settings;
+using COMrade.Core.Shortcuts;
 using COMrade.Core.Updates;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -44,6 +45,8 @@ public sealed partial class MainViewModel : ObservableObject
     public bool ShowEmptyState => Tabs.Count == 0;
 
     public string Title => SelectedTab?.WindowTitle ?? "COMrade";
+
+    public string SettingsToolTip => DisplayText.WithKeys("Settings", _settings.Current.Keymap.KeysFor(ShortcutAction.OpenSettings));
 
     // The notice of a new release, above the tabs' contents of every window.
 
@@ -144,8 +147,12 @@ public sealed partial class MainViewModel : ObservableObject
         await Task.WhenAll(tabs.OfType<DeviceTabViewModel>().Select(tab => _sessions.CloseAsync(tab.Session)));
     }
 
-    // The settings page changes the tab mode; it saves on the UI thread.
-    private void OnSettingsChanged(object? sender, EventArgs e) => UpdateTabTitles();
+    // The settings page changes the tab mode and the shortcuts; it saves on the UI thread.
+    private void OnSettingsChanged(object? sender, EventArgs e)
+    {
+        UpdateTabTitles();
+        OnPropertyChanged(nameof(SettingsToolTip));
+    }
 
     // Raised on the UI thread.
     private void OnUpdatesChanged(object? sender, EventArgs e)

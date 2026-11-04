@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using COMrade.Core.Sessions;
 using COMrade.Core.Settings;
+using COMrade.Core.Shortcuts;
 using COMrade.Terminal;
 using COMrade.ViewModels;
 using Microsoft.UI.Xaml;
@@ -26,8 +27,7 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         _settings = settings;
         InitializeComponent();
 
-        // The terminal follows the appearance in the settings, also while it is open.
-        Terminal.Appearance = settings.Current.TerminalOrDefault;
+        ApplySettings();
         settings.Changed += OnSettingsChanged;
 
         _terminal = new DeviceTerminal(viewModel.Session, Terminal, viewModel.Settings.Terminal, viewModel.History);
@@ -48,11 +48,45 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
     /// <summary>The terminal's character grid, in physical pixels; null until it has been laid out.</summary>
     public (int CellWidth, int CellHeight, int GridWidth, int GridHeight)? GetGrid() => Terminal.GetGrid();
 
-    public void Copy() => Terminal.Copy();
-
-    public void Paste() => Terminal.Paste();
-
-    public void ScrollToBottom() => Terminal.ScrollToBottom();
+    /// <summary>Runs a shortcut that acts on the tab; false for any other.</summary>
+    public bool RunShortcut(ShortcutAction action)
+    {
+        switch (action)
+        {
+            case ShortcutAction.OpenOrClosePort:
+                ViewModel.OpenOrCloseCommand.Execute(null);
+                return true;
+            case ShortcutAction.SendBreak:
+                ViewModel.BreakCommand.Execute(null);
+                return true;
+            case ShortcutAction.Copy:
+                Terminal.Copy();
+                return true;
+            case ShortcutAction.Paste:
+                Terminal.Paste();
+                return true;
+            case ShortcutAction.ClearTerminal:
+                ViewModel.ClearCommand.Execute(null);
+                return true;
+            case ShortcutAction.StartOrStopLogging:
+                ViewModel.IsLogging = !ViewModel.IsLogging;
+                return true;
+            case ShortcutAction.ScrollToTop:
+                Terminal.ScrollToTop();
+                return true;
+            case ShortcutAction.ScrollPageUp:
+                Terminal.ScrollPages(-1);
+                return true;
+            case ShortcutAction.ScrollPageDown:
+                Terminal.ScrollPages(1);
+                return true;
+            case ShortcutAction.ScrollToBottom:
+                Terminal.ScrollToBottom();
+                return true;
+            default:
+                return false;
+        }
+    }
 
     public void Dispose()
     {
@@ -70,7 +104,26 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
     private void OnTerminalMessage(object? sender, string message) => _terminal.Show(message);
 
     // The settings page saves on the UI thread.
-    private void OnSettingsChanged(object? sender, EventArgs e) => Terminal.Appearance = _settings.Current.TerminalOrDefault;
+    private void OnSettingsChanged(object? sender, EventArgs e) => ApplySettings();
+
+    // The terminal follows the appearance in the settings, also while it is open, and the
+    // tooltips the keys of the shortcuts.
+    private void ApplySettings()
+    {
+        var settings = _settings.Current;
+        Terminal.Appearance = settings.TerminalOrDefault;
+
+        var keymap = settings.Keymap;
+        SetToolTip(OpenPortButton, "Open the port", ShortcutAction.OpenOrClosePort);
+        SetToolTip(ClosePortButton, "Close the port", ShortcutAction.OpenOrClosePort);
+        SetToolTip(BreakButton, "Send a break of 250 ms", ShortcutAction.SendBreak);
+        SetToolTip(ClearButton, "Clear the terminal", ShortcutAction.ClearTerminal);
+        SetToolTip(LogButton, "Log this session to a file", ShortcutAction.StartOrStopLogging);
+        SetToolTip(ScrollToBottomButton, "Show the newest output", ShortcutAction.ScrollToBottom);
+
+        void SetToolTip(DependencyObject element, string text, ShortcutAction action) =>
+            ToolTipService.SetToolTip(element, DisplayText.WithKeys(text, keymap.KeysFor(action)));
+    }
 
     private void OnClearRequested(object? sender, EventArgs e) => _terminal.Clear();
 

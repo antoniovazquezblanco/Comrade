@@ -139,6 +139,81 @@
 
                 <Border Style="{StaticResource SectionStyle}">
                     <StackPanel Spacing="12">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="2">
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Shortcuts" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="Click a shortcut and press its new keys: Ctrl, Shift if you like, and one more key. Keys that run a shortcut never reach the device, and devices use Ctrl with a letter, such as Ctrl+C."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button
+                                Grid.Column="1"
+                                VerticalAlignment="Top"
+                                Command="{x:Bind ViewModel.RestoreDefaultShortcutsCommand}"
+                                Content="Restore defaults"
+                                IsEnabled="{x:Bind ViewModel.CanRestoreDefaultShortcuts, Mode=OneWay}" />
+                        </Grid>
+                        <ItemsRepeater ItemsSource="{x:Bind ViewModel.Shortcuts}">
+                            <ItemsRepeater.Layout>
+                                <StackLayout Spacing="4" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ShortcutItem">
+                                    <Grid ColumnSpacing="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock VerticalAlignment="Center" Text="{x:Bind Name}" />
+                                        <!-- A click waits for the new keys; Esc or leaving the button cancels. -->
+                                        <Button
+                                            Grid.Column="1"
+                                            MinWidth="180"
+                                            AutomationProperties.HelpText="{x:Bind Keys, Mode=OneWay}"
+                                            AutomationProperties.Name="{x:Bind Name}"
+                                            Click="OnShortcutClick"
+                                            Content="{x:Bind Keys, Mode=OneWay}"
+                                            KeyDown="OnShortcutKeyDown"
+                                            LostFocus="OnShortcutLostFocus"
+                                            Tag="{x:Bind Action}" />
+                                        <Button
+                                            Grid.Column="2"
+                                            AutomationProperties.Name="Default keys"
+                                            Click="OnResetShortcutClick"
+                                            IsEnabled="{x:Bind IsChanged, Mode=OneWay}"
+                                            Tag="{x:Bind Action}"
+                                            ToolTipService.ToolTip="{x:Bind ResetToolTip}">
+                                            <FontIcon FontSize="14" Glyph="&#xE7A7;" />
+                                        </Button>
+                                        <Button
+                                            Grid.Column="3"
+                                            AutomationProperties.Name="No shortcut"
+                                            Click="OnRemoveShortcutClick"
+                                            IsEnabled="{x:Bind HasKeys, Mode=OneWay}"
+                                            Tag="{x:Bind Action}"
+                                            ToolTipService.ToolTip="No shortcut">
+                                            <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                        <InfoBar
+                            IsOpen="{x:Bind ViewModel.ShowShortcutNote, Mode=TwoWay}"
+                            Message="{x:Bind ViewModel.ShortcutNote, Mode=OneWay}"
+                            Severity="Informational" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource SectionStyle}">
+                    <StackPanel Spacing="12">
                         <StackPanel Spacing="2">
                             <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Logging" />
                             <TextBlock

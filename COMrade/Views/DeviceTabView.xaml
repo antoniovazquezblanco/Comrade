@@ -62,12 +62,15 @@
                     </Flyout>
                 </DropDownButton.Flyout>
             </DropDownButton>
+            <!-- Tooltips name the keys of the shortcuts, see ApplySettings. -->
             <Button
+                x:Name="OpenPortButton"
                 Command="{x:Bind ViewModel.OpenCommand}"
                 Content="Open port"
                 Style="{StaticResource AccentButtonStyle}"
                 Visibility="{x:Bind ViewModel.CanOpen, Mode=OneWay}" />
             <Button
+                x:Name="ClosePortButton"
                 Command="{x:Bind ViewModel.CloseCommand}"
                 Content="Close port"
                 Visibility="{x:Bind ViewModel.CanClose, Mode=OneWay}" />
@@ -82,22 +85,22 @@
                 IsEnabled="{x:Bind ViewModel.CanSetRts, Mode=OneWay}"
                 ToolTipService.ToolTip="Request To Send: kept while the tab is open and set again when the port reopens. RTS/CTS flow control drives it itself." />
             <Button
+                x:Name="BreakButton"
                 AutomationProperties.Name="Break"
                 Command="{x:Bind ViewModel.BreakCommand}"
                 Content="BRK"
-                IsEnabled="{x:Bind ViewModel.IsOpen, Mode=OneWay}"
-                ToolTipService.ToolTip="Send a break of 250 ms" />
+                IsEnabled="{x:Bind ViewModel.IsOpen, Mode=OneWay}" />
             <AppBarSeparator />
-            <Button Command="{x:Bind ViewModel.ClearCommand}" ToolTipService.ToolTip="Clear the terminal">
+            <Button x:Name="ClearButton" Command="{x:Bind ViewModel.ClearCommand}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon FontSize="14" Glyph="&#xE894;" />
                     <TextBlock Text="Clear" />
                 </StackPanel>
             </Button>
             <ToggleButton
+                x:Name="LogButton"
                 AutomationProperties.Name="Log"
-                IsChecked="{x:Bind ViewModel.IsLogging, Mode=TwoWay}"
-                ToolTipService.ToolTip="Log this session to a file">
+                IsChecked="{x:Bind ViewModel.IsLogging, Mode=TwoWay}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon FontSize="14" Glyph="&#xE7C8;" />
                     <TextBlock Text="Log" />
@@ -213,7 +216,6 @@
                     Padding="4,0"
                     Click="OnScrollToBottomClick"
                     FontSize="12"
-                    ToolTipService.ToolTip="Show the newest output (Ctrl+Shift+End)"
                     Visibility="Collapsed">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon FontSize="12" Glyph="&#xE74B;" />

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using COMrade.Core.Shortcuts;
 using COMrade.Core.Terminal;
 
 namespace COMrade.Core.Settings;
@@ -10,13 +11,15 @@ namespace COMrade.Core.Settings;
 /// <param name="Logging">How sessions are logged to files; null in files from before it existed.</param>
 /// <param name="Updates">How COMrade looks for new releases; null in files from before it existed.</param>
 /// <param name="AiAccess">What AI assistants may use; off until the user turns it on.</param>
+/// <param name="Shortcuts">The keyboard shortcuts changed from the defaults (see <see cref="Keymap.Changes"/>); null when none are.</param>
 public sealed record AppSettings(
     DeviceSettings NewDevice,
     TabMode TabMode = TabMode.Compact,
     TerminalAppearance? Terminal = null,
     LogSettings? Logging = null,
     UpdateSettings? Updates = null,
-    AiAccess AiAccess = AiAccess.Off)
+    AiAccess AiAccess = AiAccess.Off,
+    IReadOnlyDictionary<string, string?>? Shortcuts = null)
 {
     public static AppSettings Default { get; } = new(DeviceSettings.Default, Terminal: TerminalAppearance.Default);
 
@@ -31,4 +34,8 @@ public sealed record AppSettings(
     /// <summary>The update settings, with the defaults for settings saved before they existed.</summary>
     [JsonIgnore]
     public UpdateSettings UpdatesOrDefault => Updates ?? UpdateSettings.Default;
+
+    /// <summary>The keys of each keyboard shortcut.</summary>
+    [JsonIgnore]
+    public Keymap Keymap => new(Shortcuts);
 }

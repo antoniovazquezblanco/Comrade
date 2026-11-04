@@ -6,6 +6,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using COMrade.Core.Ports;
 using COMrade.Core.Settings;
+using COMrade.Core.Shortcuts;
 using COMrade.Core.Terminal;
 using COMrade.ViewModels;
 using COMrade.Views;
@@ -46,7 +47,6 @@ public sealed partial class MainWindow : Window
     private readonly AppSettingsStore _settings;
     private readonly ThreadKeyboardHook _keyboard;
     private readonly WindowMessageMonitor _messages;
-    private const VirtualKey Comma = (VirtualKey)0xBC;
 
     private readonly Dictionary<TabViewModel, FrameworkElement> _views = [];
     private bool _closed;
@@ -99,42 +99,42 @@ public sealed partial class MainWindow : Window
         DragRegion.MinWidth = AppWindow.TitleBar.RightInset / scale + 48;
     }
 
-    // Windows Terminal's shortcuts. Ctrl+Shift, because Ctrl+letter is a control character that
-    // devices use (Ctrl+T, Ctrl+W, Ctrl+C...), so it must reach the terminal.
+    // The keyboard hook hands over the keys pressed with Ctrl, which every shortcut takes (see KeyChord).
     private bool OnShortcut(VirtualKey key, bool shift)
     {
         // Every window of the app hooks the same thread: only the one in front takes the keys.
         if (_closed || GetForegroundWindow() != WinRT.Interop.WindowNative.GetWindowHandle(this))
             return false;
 
+        // The settings page waits for the new keys of a shortcut.
+        if (ViewModel.SelectedTab is SettingsTabViewModel { IsRecordingShortcut: true } settings)
+            return settings.RecordShortcut(key, shift);
+
+        if (KeyChord.From(key, shift) is not { } keys || _settings.Current.Keymap.ActionFor(keys) is not { } action)
+            return false;
+
         var selected = SelectedView as DeviceTabView;
-        switch (key, shift)
+        switch (action)
         {
-            case (Comma, false):
+            case ShortcutAction.OpenSettings:
                 ViewModel.OpenSettings();
                 return true;
-            case (VirtualKey.T, true):
+            case ShortcutAction.NewTab:
                 ShowPortMenu();
                 return true;
-            case (VirtualKey.W, true):
+            case ShortcutAction.CloseTab:
                 if (ViewModel.SelectedTab is { } tab)
                     _ = ViewModel.CloseTabAsync(tab);
                 return true;
-            case (VirtualKey.Tab, _):
-                SelectNextTab(shift ? -1 : 1);
+            case ShortcutAction.NextTab:
+                SelectNextTab(1);
                 return true;
-            // Text boxes keep their own copy, paste and selection to the end.
-            case (VirtualKey.C, true) when selected is not null && !IsEditingText:
-                selected.Copy();
+            case ShortcutAction.PreviousTab:
+                SelectNextTab(-1);
                 return true;
-            case (VirtualKey.V, true) when selected is not null && !IsEditingText:
-                selected.Paste();
-                return true;
-            case (VirtualKey.End, true) when selected is not null && !IsEditingText:
-                selected.ScrollToBottom();
-                return true;
+            // The tab's: text boxes keep these keys for their own copy, paste and moves.
             default:
-                return false;
+                return selected is not null && !IsEditingText && selected.RunShortcut(action);
         }
     }
 

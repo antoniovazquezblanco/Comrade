@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -14,6 +15,9 @@ internal static class JsonFile
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Converters = { new JsonStringEnumConverter() },
+        // Text as typed, such as the + of Ctrl+Shift+T, rather than \u002B: these files are never
+        // part of a web page, where the default escapes matter.
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
     /// <summary>The file's contents, or null when it does not exist or cannot be read.</summary>
