@@ -43,4 +43,28 @@ public class AnsiStripperTests
     {
         Assert.Equal("a\tb\r\nÁngulo ✓", Strip("a\tb\a\b\r\nÁngulo ✓"));
     }
+
+    [Fact]
+    public void It_tells_when_a_read_ends_inside_a_code()
+    {
+        var stripper = new AnsiStripper();
+
+        stripper.Strip("red \e[3", new StringBuilder());
+        Assert.True(stripper.InSequence);
+
+        stripper.Strip("1mtext", new StringBuilder());
+        Assert.False(stripper.InSequence);
+    }
+
+    [Fact]
+    public void Where_each_kept_character_was_can_be_told()
+    {
+        var text = new StringBuilder();
+        var sources = new List<int>();
+
+        new AnsiStripper().Strip("a\e[31mb\ac", text, sources);
+
+        Assert.Equal("abc", text.ToString());
+        Assert.Equal([0, 6, 8], sources);
+    }
 }

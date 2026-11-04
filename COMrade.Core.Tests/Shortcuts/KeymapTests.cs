@@ -25,6 +25,7 @@ public class KeymapTests
     [InlineData(ShortcutAction.SendBreak, VirtualKey.B, true)]
     [InlineData(ShortcutAction.Copy, VirtualKey.C, true)]
     [InlineData(ShortcutAction.Paste, VirtualKey.V, true)]
+    [InlineData(ShortcutAction.Find, VirtualKey.F, true)]
     [InlineData(ShortcutAction.ClearTerminal, VirtualKey.K, true)]
     [InlineData(ShortcutAction.StartOrStopLogging, VirtualKey.L, true)]
     [InlineData(ShortcutAction.ScrollToTop, VirtualKey.Home, true)]

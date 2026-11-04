@@ -83,6 +83,27 @@ public sealed class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Find_highlights_matches_until_turned_off()
+    {
+        Assert.True(new AppSettingsStore(FilePath).Current.HighlightMatches);
+
+        new AppSettingsStore(FilePath).Save(AppSettings.Default with { HighlightMatches = false });
+
+        Assert.False(new AppSettingsStore(FilePath).Current.HighlightMatches);
+    }
+
+    [Fact]
+    public void Settings_saved_before_find_highlights_existed_highlight()
+    {
+        new AppSettingsStore(FilePath).Save(AppSettings.Default with { TabMode = TabMode.Scrolling });
+        var file = File.ReadAllText(FilePath);
+        Assert.Contains("\"highlightMatches\": true", file);
+        File.WriteAllText(FilePath, file.Replace("\"highlightMatches\": true", "\"unknown\": 0"));
+
+        Assert.True(new AppSettingsStore(FilePath).Current.HighlightMatches);
+    }
+
+    [Fact]
     public void Changed_shortcuts_are_remembered()
     {
         var keymap = Keymap.Default.With(ShortcutAction.CloseTab, new KeyChord(VirtualKey.Q, Shift: true)).With(ShortcutAction.Copy, null);

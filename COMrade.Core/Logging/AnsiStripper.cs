@@ -13,6 +13,9 @@ public sealed class AnsiStripper
 
     private State _state;
 
+    /// <summary>Whether the text read so far ends inside a sequence, whose rest is still to come.</summary>
+    public bool InSequence => _state is not State.Text;
+
     private enum State
     {
         Text,
@@ -22,11 +25,16 @@ public sealed class AnsiStripper
         OperatingSystemCommandEscape,
     }
 
-    /// <summary>Appends the readable part of <paramref name="text"/> to <paramref name="output"/>.</summary>
-    public void Strip(ReadOnlySpan<char> text, StringBuilder output)
+    /// <summary>
+    /// Appends the readable part of <paramref name="text"/> to <paramref name="output"/>, and to
+    /// <paramref name="sources"/>, when given, the position in <paramref name="text"/> each
+    /// character appended comes from.
+    /// </summary>
+    public void Strip(ReadOnlySpan<char> text, StringBuilder output, List<int>? sources = null)
     {
-        foreach (var c in text)
+        for (var i = 0; i < text.Length; i++)
         {
+            var c = text[i];
             switch (_state)
             {
                 case State.Text when c == Escape:
@@ -34,6 +42,7 @@ public sealed class AnsiStripper
                     break;
                 case State.Text when c is '\t' or '\n' or '\r' || !char.IsControl(c):
                     output.Append(c);
+                    sources?.Add(i);
                     break;
                 case State.Text:
                     // Other control characters (bell, backspace...) do not belong in a text file.

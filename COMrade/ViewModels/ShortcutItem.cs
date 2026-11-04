@@ -43,6 +43,7 @@ public sealed partial class ShortcutItem : ObservableObject
         ShortcutAction.SendBreak => "Send a break",
         ShortcutAction.Copy => "Copy",
         ShortcutAction.Paste => "Paste",
+        ShortcutAction.Find => "Find in the output",
         ShortcutAction.ClearTerminal => "Clear the terminal",
         ShortcutAction.StartOrStopLogging => "Start or stop logging",
         ShortcutAction.ScrollToTop => "Scroll to the top",

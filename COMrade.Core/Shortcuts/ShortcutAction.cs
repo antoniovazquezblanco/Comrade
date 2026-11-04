@@ -24,6 +24,9 @@ public enum ShortcutAction
     /// <summary>Sends the clipboard text to the device, as if it had been typed.</summary>
     Paste,
 
+    /// <summary>Opens the find panel, which searches the tab's output.</summary>
+    Find,
+
     ClearTerminal,
 
     StartOrStopLogging,

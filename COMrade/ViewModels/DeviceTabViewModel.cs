@@ -52,6 +52,7 @@ public sealed partial class DeviceTabViewModel : TabViewModel
     {
         Session = session;
         Editor = new DeviceSettingsEditor(settings, ApplyAsync);
+        Find = new FindViewModel(History, appSettings);
         _store = store;
         _appSettings = appSettings;
         _ui = DispatcherQueue.GetForCurrentThread();
@@ -89,6 +90,9 @@ public sealed partial class DeviceTabViewModel : TabViewModel
 
     /// <summary>What the tab's terminal has shown; replayed when the tab moves to another window.</summary>
     public TerminalHistory History { get; } = new();
+
+    /// <summary>The find panel, searching <see cref="History"/>.</summary>
+    public FindViewModel Find { get; }
 
     // Tab, toolbar and settings card.
 
@@ -486,6 +490,7 @@ public sealed partial class DeviceTabViewModel : TabViewModel
     {
         _detection?.Cancel();
         _appSettings.Changed -= OnAppSettingsChanged;
+        Find.Dispose();
         History.Written -= OnHistoryWritten;
         StopLog();
         _clock.Stop();

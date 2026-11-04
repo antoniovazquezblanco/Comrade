@@ -29,6 +29,20 @@ public sealed class TerminalHistory(int limit = TerminalHistory.DefaultLimit)
     }
 
     /// <summary>
+    /// Lines dropped from the start beyond the limit so far: line n of an earlier copy is line
+    /// n minus the lines dropped since in a later one.
+    /// </summary>
+    public long DroppedLines
+    {
+        get
+        {
+            lock (_lock)
+                return field;
+        }
+        private set;
+    }
+
+    /// <summary>
     /// Sends the history to <paramref name="output"/>, then everything written after it. The replay
     /// and the switch happen together, so no output is lost or shown twice.
     /// </summary>
@@ -40,6 +54,27 @@ public sealed class TerminalHistory(int limit = TerminalHistory.DefaultLimit)
                 output([.. _bytes]);
             _output = output;
         }
+    }
+
+    /// <summary>
+    /// A copy of everything kept, oldest first, and <see cref="DroppedLines"/> when it was taken:
+    /// the line numbers of its lines since the first output.
+    /// </summary>
+    public (byte[] Output, long DroppedLines) Snapshot()
+    {
+        lock (_lock)
+            return ([.. _bytes], DroppedLines);
+    }
+
+    /// <summary>
+    /// Hands everything kept to <paramref name="show"/>, with <see cref="DroppedLines"/> to number
+    /// its lines, e.g. to show it again with search matches marked. Output written meanwhile waits,
+    /// so it follows the replay and none is lost.
+    /// </summary>
+    public void Replay(Action<byte[], long> show)
+    {
+        lock (_lock)
+            show([.. _bytes], DroppedLines);
     }
 
     public void Detach()
@@ -79,6 +114,8 @@ public sealed class TerminalHistory(int limit = TerminalHistory.DefaultLimit)
 
         var cut = _bytes.Count - limit;
         var lineStart = _bytes.IndexOf((byte)'\n', cut);
-        _bytes.RemoveRange(0, lineStart < 0 ? cut : lineStart + 1);
+        var dropped = lineStart < 0 ? cut : lineStart + 1;
+        DroppedLines += _bytes.Take(dropped).Count(b => b == (byte)'\n');
+        _bytes.RemoveRange(0, dropped);
     }
 }

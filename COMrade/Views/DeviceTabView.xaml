@@ -4,7 +4,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:COMrade.Controls"
-    xmlns:views="using:COMrade.Views">
+    xmlns:views="using:COMrade.Views"
+    xmlns:vm="using:COMrade.ViewModels">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -97,6 +98,15 @@
                     <TextBlock Text="Clear" />
                 </StackPanel>
             </Button>
+            <Button
+                x:Name="FindButton"
+                AutomationProperties.Name="Find"
+                Click="OnFindClick">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontSize="14" Glyph="&#xE721;" />
+                    <TextBlock Text="Find" />
+                </StackPanel>
+            </Button>
             <ToggleButton
                 x:Name="LogButton"
                 AutomationProperties.Name="Log"
@@ -178,9 +188,189 @@
                 Severity="Error" />
         </StackPanel>
 
-        <controls:TerminalView
-            x:Name="Terminal"
-            Grid.Row="2" />
+        <!-- The terminal, and the find panel beside it: nothing may be drawn over the terminal. -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <controls:TerminalView x:Name="Terminal" />
+            <Grid
+                Grid.Column="1"
+                Width="320"
+                Padding="12"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1,0,0,0"
+                KeyDown="OnFindPanelKeyDown"
+                RowSpacing="8"
+                Visibility="{x:Bind ViewModel.Find.IsOpen, Mode=OneWay}">
+                <!-- Every button of the panel as tall as the find box; the icon buttons square. -->
+                <Grid.Resources>
+                    <Style x:Key="FindIconButtonStyle" BasedOn="{StaticResource DefaultButtonStyle}" TargetType="Button">
+                        <Setter Property="Width" Value="32" />
+                        <Setter Property="Height" Value="32" />
+                        <Setter Property="Padding" Value="0" />
+                    </Style>
+                    <Style x:Key="FindIconToggleButtonStyle" BasedOn="{StaticResource DefaultToggleButtonStyle}" TargetType="ToggleButton">
+                        <Setter Property="Width" Value="32" />
+                        <Setter Property="Height" Value="32" />
+                        <Setter Property="Padding" Value="0" />
+                    </Style>
+                </Grid.Resources>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="Find" />
+                    <Button
+                        HorizontalAlignment="Right"
+                        AutomationProperties.Name="Close find"
+                        Click="OnCloseFindClick"
+                        Style="{StaticResource FindIconButtonStyle}"
+                        ToolTipService.ToolTip="Close (Esc)">
+                        <FontIcon FontSize="12" Glyph="&#xE711;" />
+                    </Button>
+                </Grid>
+                <!-- The find box and its options, as toggles beside it. -->
+                <Grid Grid.Row="1" ColumnSpacing="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <!-- Enter: next match, Shift+Enter: previous. -->
+                    <TextBox
+                        x:Name="FindBox"
+                        Margin="0,0,4,0"
+                        AutomationProperties.Name="Find in the output"
+                        KeyDown="OnFindKeyDown"
+                        PlaceholderText="Find in the output"
+                        Text="{x:Bind ViewModel.Find.Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <ToggleButton
+                        Grid.Column="1"
+                        AutomationProperties.Name="Match case"
+                        IsChecked="{x:Bind ViewModel.Find.MatchCase, Mode=TwoWay}"
+                        Style="{StaticResource FindIconToggleButtonStyle}"
+                        ToolTipService.ToolTip="Match case">
+                        <TextBlock
+                            FontSize="12"
+                            FontWeight="SemiBold"
+                            Text="Aa" />
+                    </ToggleButton>
+                    <ToggleButton
+                        Grid.Column="2"
+                        AutomationProperties.Name="Highlight in the terminal"
+                        IsChecked="{x:Bind ViewModel.Find.Highlight, Mode=TwoWay}"
+                        Style="{StaticResource FindIconToggleButtonStyle}"
+                        ToolTipService.ToolTip="Highlight the matches in the terminal">
+                        <FontIcon FontSize="14" Glyph="&#xE7E6;" />
+                    </ToggleButton>
+                </Grid>
+                <Grid Grid.Row="2" ColumnSpacing="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind ViewModel.Find.CountText, Mode=OneWay}" />
+                    <Button
+                        Grid.Column="1"
+                        AutomationProperties.Name="Previous match"
+                        Command="{x:Bind ViewModel.Find.PreviousCommand}"
+                        Style="{StaticResource FindIconButtonStyle}"
+                        ToolTipService.ToolTip="Previous match (Shift+Enter)">
+                        <FontIcon FontSize="12" Glyph="&#xE70E;" />
+                    </Button>
+                    <Button
+                        Grid.Column="2"
+                        AutomationProperties.Name="Next match"
+                        Command="{x:Bind ViewModel.Find.NextCommand}"
+                        Style="{StaticResource FindIconButtonStyle}"
+                        ToolTipService.ToolTip="Next match (Enter)">
+                        <FontIcon FontSize="12" Glyph="&#xE70D;" />
+                    </Button>
+                    <Button
+                        Grid.Column="3"
+                        AutomationProperties.Name="Search again"
+                        Command="{x:Bind ViewModel.Find.RefreshCommand}"
+                        Style="{StaticResource FindIconButtonStyle}"
+                        ToolTipService.ToolTip="Search again, including what arrived since">
+                        <FontIcon FontSize="12" Glyph="&#xE72C;" />
+                    </Button>
+                    <Button
+                        Grid.Column="4"
+                        AutomationProperties.Name="Copy line"
+                        Command="{x:Bind ViewModel.Find.CopyLineCommand}"
+                        Style="{StaticResource FindIconButtonStyle}"
+                        ToolTipService.ToolTip="Copy the line of the selected match">
+                        <FontIcon FontSize="12" Glyph="&#xE8C8;" />
+                    </Button>
+                </Grid>
+                <!-- Choosing a match scrolls the terminal to it: clicking it, also once selected, or the arrows. -->
+                <ListView
+                    Grid.Row="3"
+                    Margin="-12,0"
+                    IsItemClickEnabled="True"
+                    ItemClick="OnMatchClick"
+                    ItemsSource="{x:Bind ViewModel.Find.Matches}"
+                    SelectedItem="{x:Bind ViewModel.Find.Selected, Mode=TwoWay}"
+                    SelectionChanged="OnMatchSelectionChanged">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FindResult">
+                            <!-- The line number, then the line with the text found in bold. -->
+                            <Grid>
+                                <Grid.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Setter Property="FontFamily" Value="Cascadia Mono" />
+                                        <Setter Property="FontSize" Value="12" />
+                                    </Style>
+                                </Grid.Resources>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" MinWidth="48" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Line}" />
+                                <!-- Side by side: see FindResult for the spaces between them. -->
+                                <TextBlock Grid.Column="1" Text="{x:Bind Before}" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    FontWeight="Bold"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Text="{x:Bind Found}" />
+                                <TextBlock
+                                    Grid.Column="3"
+                                    Text="{x:Bind After}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <TextBlock
+                    Grid.Row="4"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind ViewModel.Find.Note, Mode=OneWay}"
+                    TextWrapping="Wrap"
+                    Visibility="{x:Bind ViewModel.Find.HasNote, Mode=OneWay}" />
+            </Grid>
+        </Grid>
 
         <!-- Status bar. -->
         <Grid
