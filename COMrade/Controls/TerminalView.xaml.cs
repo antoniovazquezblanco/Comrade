@@ -28,6 +28,7 @@ public sealed partial class TerminalView : UserControl
     private TerminalAppearance _appearance = TerminalAppearance.Default;
     private (int Width, int Height)? _cell;
     private double _cellScale;
+    private ScrollBar? _scrollBar;
 
     public TerminalView()
     {
@@ -39,7 +40,7 @@ public sealed partial class TerminalView : UserControl
         Loaded += (_, _) =>
         {
             ApplyAppearance();
-            ShowScrollBar();
+            SetUpScrollBar();
 
             // Connected once loaded: the control starts the connection as soon as it is set and
             // drops output until its native terminal exists, which happens when it is loaded.
@@ -54,6 +55,12 @@ public sealed partial class TerminalView : UserControl
     /// <summary>Text typed or pasted by the user.</summary>
     public event EventHandler<string>? InputReceived;
 
+    /// <summary>Raised when <see cref="IsScrolledUp"/> changes.</summary>
+    public event EventHandler? IsScrolledUpChanged;
+
+    /// <summary>Whether the user scrolled up, away from the newest output.</summary>
+    public bool IsScrolledUp { get; private set; }
+
     /// <summary>Shows bytes received from the device. Can be called from any thread.</summary>
     public void Write(ReadOnlySpan<byte> data) => _connection.Write(data);
 
@@ -61,6 +68,13 @@ public sealed partial class TerminalView : UserControl
     public void Clear() => _connection.Write("\e[2J\e[3J\e[H"u8);
 
     public void FocusTerminal() => Term.Focus(FocusState.Programmatic);
+
+    /// <summary>Shows the newest output.</summary>
+    public void ScrollToBottom()
+    {
+        if (IsScrolledUp)
+            Term.ScrollToBottom();
+    }
 
     /// <summary>Font, colours and cursor; applied at once, also to text already shown.</summary>
     public TerminalAppearance Appearance
@@ -163,11 +177,27 @@ public sealed partial class TerminalView : UserControl
     }
 
     // The control's scroll bar for the scrollback is a plain WinUI ScrollBar, which draws nothing
-    // until it is given an indicator mode.
-    private void ShowScrollBar()
+    // until it is given an indicator mode. The control keeps it on the part of the scrollback in
+    // view, setting its maximum and then its value: it is read once both are set.
+    private void SetUpScrollBar()
     {
-        if (Term.FindName("scrollbar") is ScrollBar scrollBar)
-            scrollBar.IndicatorMode = ScrollingIndicatorMode.MouseIndicator;
+        if (_scrollBar is not null || Term.FindName("scrollbar") is not ScrollBar scrollBar)
+            return;
+
+        _scrollBar = scrollBar;
+        scrollBar.IndicatorMode = ScrollingIndicatorMode.MouseIndicator;
+        scrollBar.ValueChanged += (_, _) => DispatcherQueue.TryEnqueue(UpdateIsScrolledUp);
+        scrollBar.RegisterPropertyChangedCallback(RangeBase.MaximumProperty, (_, _) => DispatcherQueue.TryEnqueue(UpdateIsScrolledUp));
+    }
+
+    private void UpdateIsScrolledUp()
+    {
+        var isScrolledUp = _scrollBar is { } scrollBar && scrollBar.Value < scrollBar.Maximum;
+        if (isScrolledUp == IsScrolledUp)
+            return;
+
+        IsScrolledUp = isScrolledUp;
+        IsScrolledUpChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // The control takes colours as Win32 COLORREF values, 0x00BBGGRR; COMrade keeps 0xRRGGBB.

@@ -2,17 +2,19 @@ using System.Reflection;
 using Microsoft.Terminal.Wpf;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Windows.Foundation;
 
 namespace COMrade.Controls;
 
-/// <summary>Windows Terminal's control with two crashes fixed.</summary>
+/// <summary>Windows Terminal's control with two crashes fixed and a way to scroll to the bottom.</summary>
 public sealed partial class SafeTerminalControl : TerminalControl
 {
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
     private readonly MethodInfo? _passFocus;
+    private readonly MethodInfo? _userScroll;
     private readonly object? _container;
 
     public SafeTerminalControl()
@@ -23,6 +25,7 @@ public sealed partial class SafeTerminalControl : TerminalControl
         var original = typeof(TerminalControl).GetMethod("TerminalControl_GettingFocus", Private);
         _container = typeof(TerminalControl).GetField("termContainer", Private)?.GetValue(this);
         _passFocus = _container?.GetType().GetMethod("PassFocus", Private);
+        _userScroll = _container?.GetType().GetMethod("UserScroll", Private);
         if (original is null || _passFocus is null)
             return;
 
@@ -34,6 +37,18 @@ public sealed partial class SafeTerminalControl : TerminalControl
     // back into OnCreateAutomationPeer until the stack overflows: Narrator, screen readers or any
     // other UI Automation client crashed the app as soon as they reached the terminal.
     protected override AutomationPeer OnCreateAutomationPeer() => new FrameworkElementAutomationPeer(this);
+
+    /// <summary>Shows the newest output, as dragging the scroll bar to its end does.</summary>
+    public void ScrollToBottom()
+    {
+        if (_userScroll is null || FindName("scrollbar") is not ScrollBar scrollBar)
+            return;
+
+        scrollBar.Value = scrollBar.Maximum;
+        // Any top past the last screen shows the last screen. The scroll bar's maximum can lag
+        // behind output still being written, and would stop a few lines short.
+        _userScroll.Invoke(_container, [int.MaxValue]);
+    }
 
     private void OnGettingFocus(UIElement sender, GettingFocusEventArgs args)
     {

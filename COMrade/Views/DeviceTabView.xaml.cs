@@ -35,6 +35,7 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         viewModel.TerminalMessage += OnTerminalMessage;
         viewModel.ClearRequested += OnClearRequested;
         viewModel.PropertyChanged += OnPropertyChanged;
+        Terminal.IsScrolledUpChanged += OnIsScrolledUpChanged;
 
         // Hidden tabs must hide the terminal itself, see TerminalView.
         RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => Terminal.Visibility = Visibility);
@@ -50,6 +51,8 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
     public void Copy() => Terminal.Copy();
 
     public void Paste() => Terminal.Paste();
+
+    public void ScrollToBottom() => Terminal.ScrollToBottom();
 
     public void Dispose()
     {
@@ -70,6 +73,16 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
     private void OnSettingsChanged(object? sender, EventArgs e) => Terminal.Appearance = _settings.Current.TerminalOrDefault;
 
     private void OnClearRequested(object? sender, EventArgs e) => _terminal.Clear();
+
+    private void OnIsScrolledUpChanged(object? sender, EventArgs e) =>
+        ScrollToBottomButton.Visibility = Terminal.IsScrolledUp ? Visibility.Visible : Visibility.Collapsed;
+
+    // The terminal takes the focus first: the button disappears once at the bottom.
+    private void OnScrollToBottomClick(object sender, RoutedEventArgs e)
+    {
+        Terminal.FocusTerminal();
+        Terminal.ScrollToBottom();
+    }
 
     // The flyout closes so the tab shows the detection and what the device prints.
     private void OnDetectSpeedClick(object sender, RoutedEventArgs e)
