@@ -136,6 +136,11 @@ public sealed partial class SettingsTabViewModel : TabViewModel
     /// <summary>The 16 ANSI colours of the scheme, normal then bright.</summary>
     public IReadOnlyList<Color> PreviewPalette => [.. Appearance.Scheme.Palette.Select(ToColor)];
 
+    public bool CanRestoreDefaultAppearance => Appearance != TerminalAppearance.Default;
+
+    [RelayCommand]
+    private void RestoreDefaultAppearance() => SaveAppearance(TerminalAppearance.Default);
+
     private TerminalAppearance Appearance => _settings.Current.TerminalOrDefault;
 
     // Shortcuts: the keys of each, changed by pressing the new ones.
