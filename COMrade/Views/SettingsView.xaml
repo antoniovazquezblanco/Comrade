@@ -50,13 +50,25 @@
 
                 <Border Style="{StaticResource SectionStyle}">
                     <StackPanel Spacing="12">
-                        <StackPanel Spacing="2">
-                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Terminal" />
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Text="Font, colours and cursor of every terminal; open tabs change at once."
-                                TextWrapping="Wrap" />
-                        </StackPanel>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="2">
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Terminal" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="Font, colours and cursor of every terminal; open tabs change at once."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button
+                                Grid.Column="1"
+                                VerticalAlignment="Top"
+                                Command="{x:Bind ViewModel.RestoreDefaultAppearanceCommand}"
+                                Content="Restore defaults"
+                                IsEnabled="{x:Bind ViewModel.CanRestoreDefaultAppearance, Mode=OneWay}" />
+                        </Grid>
                         <Grid ColumnSpacing="12" RowSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="2*" />
