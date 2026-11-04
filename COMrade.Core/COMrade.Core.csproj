@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.Core" Version="2.3.1" />
     <PackageReference Include="System.IO.Ports" Version="10.0.14" />
   </ItemGroup>
 

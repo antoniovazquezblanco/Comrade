@@ -58,12 +58,36 @@ $env:COMRADE_LOOPBACK_PORT = "COM16"
 dotnet test --project COMrade.IntegrationTests
 ```
 
+The integration tests also start the MCP relay (`COMrade.Mcp.exe`) against a server of their own;
+those need no serial port.
+
+## AI access (MCP)
+
+COMrade serves AI assistants over MCP while AI access is on in its settings. The MCP client starts
+`COMrade.Mcp.exe`, which relays MCP between the client's standard input and output and a named pipe
+of the running COMrade (`COMrade.Mcp.<user SID>`). The pipe is created for the current user only and
+refuses clients from other machines. The tools live in `COMrade.Core/Mcp`; the app gives them its tabs
+through `IAssistantHost` and `IAssistantTab`.
+
+To try a development build, turn AI access on in its settings and add the relay built next to it.
+The settings page shows how for each client, with the debug build's path; for Claude Code:
+
+```powershell
+claude mcp add comrade -- "$PWD\COMrade\bin\x64\Debug\net10.0-windows10.0.19041.0\win-x64\COMrade.Mcp.exe"
+```
+
+`COMRADE_MCP_PIPE` gives the relay another pipe name, for tests that run their own server.
+
+The setup steps for each client live in `COMrade.Core/Mcp/ClientSetup.cs`. Clients change how they
+take servers: check the steps against their documentation when one reports a problem.
+
 ## Project layout
 
 | Project | Contents |
 |---|---|
 | `COMrade` | WinUI 3 app: windows, views, view models, the terminal control host |
-| `COMrade.Core` | No UI: port discovery and device identity, serial connection, port sessions with automatic reopen, settings stores, terminal line endings |
+| `COMrade.Core` | No UI: port discovery and device identity, serial connection, port sessions with automatic reopen, settings stores, terminal line endings, the MCP server for AI assistants |
+| `COMrade.Mcp` | The MCP relay AI clients start (`COMrade.Mcp.exe`), built and published next to `COMrade.exe` |
 | `COMrade.Core.Tests` | xUnit unit tests with fakes and a fake clock |
 | `COMrade.IntegrationTests` | Tests against real serial ports |
 | `COMrade.Installer` | Per-user MSI installer of the self-contained build |

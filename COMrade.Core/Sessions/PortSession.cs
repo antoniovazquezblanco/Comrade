@@ -91,6 +91,9 @@ public sealed class PortSession : IAsyncDisposable
 
     public long BytesSent => Interlocked.Read(ref _bytesSent);
 
+    /// <summary>The raw bytes received, across reopens, for AI assistants.</summary>
+    public ReceiveBuffer Received { get; } = new();
+
     /// <summary>Completes when the device arrivals and removals reported so far have been handled.</summary>
     internal Task DeviceEventsHandled
     {
@@ -317,7 +320,9 @@ public sealed class PortSession : IAsyncDisposable
                     return;
 
                 Interlocked.Add(ref _bytesReceived, count);
-                DataReceived?.Invoke(this, buffer[..count]);
+                var data = buffer[..count];
+                Received.Append(data);
+                DataReceived?.Invoke(this, data);
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)

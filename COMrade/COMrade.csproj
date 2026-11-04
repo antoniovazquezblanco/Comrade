@@ -53,6 +53,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\COMrade.Core\COMrade.Core.csproj" />
+    <!-- The MCP relay AI clients start goes next to COMrade.exe, in builds and publishes alike. The
+         SDK copies a referenced program's exe and runtime files; its assembly comes as content. -->
+    <ProjectReference
+      Include="..\COMrade.Mcp\COMrade.Mcp.csproj"
+      ReferenceOutputAssembly="false"
+      OutputItemType="Content"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

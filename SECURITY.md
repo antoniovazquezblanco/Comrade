@@ -19,6 +19,7 @@ please update before reporting.
 
 - The COMrade app, its installer and its release files.
 - How COMrade handles data received from serial devices, its settings files and its log files.
+- COMrade's access for AI assistants: its MCP server, its named pipe and the relay `COMrade.Mcp.exe`.
 - The build and release workflows of this repository.
 
 Problems in the serial drivers or in Windows itself are out of scope.

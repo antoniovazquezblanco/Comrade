@@ -15,6 +15,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\COMrade.Core\COMrade.Core.csproj" />
+    <!-- The MCP relay, next to the tests as next to COMrade.exe (see COMrade.csproj). -->
+    <ProjectReference
+      Include="..\COMrade.Mcp\COMrade.Mcp.csproj"
+      ReferenceOutputAssembly="false"
+      OutputItemType="Content"
+      CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
