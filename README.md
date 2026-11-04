@@ -30,6 +30,7 @@ unplugged, resets itself or comes back under a different COM number.
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd> | Close the tab |
 | <kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> | Next / previous tab |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> | Copy / paste |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>End</kbd> | Go to the newest output |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings |
 
 <kbd>Ctrl</kbd>+<kbd>C</kbd> copies when text is selected and otherwise reaches the device, like the

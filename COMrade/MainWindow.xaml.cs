@@ -123,12 +123,15 @@ public sealed partial class MainWindow : Window
             case (VirtualKey.Tab, _):
                 SelectNextTab(shift ? -1 : 1);
                 return true;
-            // Text boxes keep their own copy and paste.
+            // Text boxes keep their own copy, paste and selection to the end.
             case (VirtualKey.C, true) when selected is not null && !IsEditingText:
                 selected.Copy();
                 return true;
             case (VirtualKey.V, true) when selected is not null && !IsEditingText:
                 selected.Paste();
+                return true;
+            case (VirtualKey.End, true) when selected is not null && !IsEditingText:
+                selected.ScrollToBottom();
                 return true;
             default:
                 return false;

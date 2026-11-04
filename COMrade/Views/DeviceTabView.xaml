@@ -201,12 +201,25 @@
                 </Ellipse>
                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
             </StackPanel>
-            <!-- AI assistants, logging, then the device's input lines (bright when on). -->
+            <!-- Back to the bottom, AI assistants, logging, then the device's input lines (bright when on). -->
             <StackPanel
                 Grid.Column="1"
                 HorizontalAlignment="Right"
                 Orientation="Horizontal"
                 Spacing="16">
+                <!-- While scrolled up: the terminal is a native window, so no button can float over it. -->
+                <HyperlinkButton
+                    x:Name="ScrollToBottomButton"
+                    Padding="4,0"
+                    Click="OnScrollToBottomClick"
+                    FontSize="12"
+                    ToolTipService.ToolTip="Show the newest output (Ctrl+Shift+End)"
+                    Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon FontSize="12" Glyph="&#xE74B;" />
+                        <TextBlock Text="Go to bottom" />
+                    </StackPanel>
+                </HyperlinkButton>
                 <!-- An AI assistant using the tab, and what it did last. -->
                 <StackPanel
                     Orientation="Horizontal"
