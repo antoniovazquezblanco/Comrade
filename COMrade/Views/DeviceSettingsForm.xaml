@@ -16,6 +16,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <!-- SelectedItem too: an editable ComboBox does not show its initial Text. -->
@@ -58,6 +59,29 @@
                 Header="Enter sends"
                 ItemsSource="{x:Bind vm:DeviceSettingsEditor.SendLineEndingOptions}"
                 SelectedIndex="{x:Bind Editor.SendLineEndingIndex, Mode=TwoWay}" />
+        
+            <!-- For devices that drop input sent at full speed, e.g. pasting into a bootloader. -->
+            <NumberBox
+                Grid.Row="2"
+                Header="Char delay (ms)"
+                LargeChange="10"
+                Maximum="10000"
+                Minimum="0"
+                SmallChange="1"
+                SpinButtonPlacementMode="Compact"
+                ToolTipService.ToolTip="Time to wait after each character sent, for devices that drop input sent at full speed"
+                Value="{x:Bind Editor.CharacterDelay, Mode=TwoWay}" />
+            <NumberBox
+                Grid.Row="2"
+                Grid.Column="1"
+                Header="Line delay (ms)"
+                LargeChange="100"
+                Maximum="10000"
+                Minimum="0"
+                SmallChange="10"
+                SpinButtonPlacementMode="Compact"
+                ToolTipService.ToolTip="Time to wait after each line sent, instead of the character delay"
+                Value="{x:Bind Editor.LineDelay, Mode=TwoWay}" />
         </Grid>
 
         <StackPanel>

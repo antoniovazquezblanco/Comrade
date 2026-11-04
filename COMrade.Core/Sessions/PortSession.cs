@@ -26,6 +26,7 @@ public sealed class PortSession : IAsyncDisposable
     private readonly OpenSerialConnection _openConnection;
     private readonly TimeProvider _time;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly Lock _deviceEventsLock = new();
     private Task _deviceEvents = Task.CompletedTask;
     private ISerialConnection? _connection;
@@ -141,26 +142,58 @@ public sealed class PortSession : IAsyncDisposable
         }
     }
 
-    /// <summary>Sends bytes to the device; returns false when the port is not open or the write failed.</summary>
+    /// <summary>
+    /// Sends bytes to the device, waiting between bytes and lines as the settings say; returns
+    /// false when the port is not open, closes while a paced send is under way, or the write failed.
+    /// </summary>
+    /// <remarks>One send at a time, so a paced send is not interleaved with the next one.</remarks>
     public async Task<bool> SendAsync(ReadOnlyMemory<byte> data)
     {
         var connection = _connection;
         if (connection is null)
             return false;
 
+        await _sendGate.WaitAsync();
         try
         {
-            await connection.WriteAsync(data, CancellationToken.None);
+            var settings = Settings;
+            if (!settings.IsPaced)
+            {
+                await connection.WriteAsync(data, CancellationToken.None);
+                Interlocked.Add(ref _bytesSent, data.Length);
+                return true;
+            }
+
+            for (var index = 0; index < data.Length; index++)
+            {
+                if (_connection != connection)
+                    return false;
+
+                await connection.WriteAsync(data.Slice(index, 1), CancellationToken.None);
+                Interlocked.Increment(ref _bytesSent);
+
+                var delay = EndsLine(data.Span, index) ? settings.LineDelayMilliseconds : settings.CharacterDelayMilliseconds;
+                // Also after the last byte, so the next send keeps the pace.
+                if (delay > 0)
+                    await Task.Delay(TimeSpan.FromMilliseconds(delay), _time);
+            }
+
+            return true;
         }
         catch (SerialPortException ex)
         {
             await ConnectionLostAsync(connection, ex.Error);
             return false;
         }
-
-        Interlocked.Add(ref _bytesSent, data.Length);
-        return true;
+        finally
+        {
+            _sendGate.Release();
+        }
     }
+
+    // A line ends with LF, or with a CR that no LF follows.
+    private static bool EndsLine(ReadOnlySpan<byte> data, int index) =>
+        data[index] == (byte)'\n' || (data[index] == (byte)'\r' && (index + 1 == data.Length || data[index + 1] != (byte)'\n'));
 
     /// <summary>
     /// Sets DTR and RTS, on the open port if there is one, and keeps them for the next time it opens.
