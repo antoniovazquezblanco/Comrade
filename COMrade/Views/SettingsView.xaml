@@ -182,6 +182,75 @@
                 <Border Style="{StaticResource SectionStyle}">
                     <StackPanel Spacing="12">
                         <StackPanel Spacing="2">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="AI assistants" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Let AI assistants such as Claude Code use serial devices through COMrade (MCP). What they send and receive shows in the device's tab, where you can type at any time. Assistants read what devices print, so let them use only devices whose output you trust."
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel>
+                            <RadioButton
+                                Content="Off"
+                                GroupName="AiAccess"
+                                IsChecked="{x:Bind ViewModel.IsAiOff, Mode=TwoWay}" />
+                            <RadioButton
+                                Content="Per tab: only devices whose tab has MCP turned on in its toolbar"
+                                GroupName="AiAccess"
+                                IsChecked="{x:Bind ViewModel.IsAiPerTab, Mode=TwoWay}" />
+                            <RadioButton
+                                Content="All ports: assistants can open and use any port"
+                                GroupName="AiAccess"
+                                IsChecked="{x:Bind ViewModel.IsAiAllPorts, Mode=TwoWay}" />
+                        </StackPanel>
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind ViewModel.AiStatus, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+                        <!-- How to add COMrade to the chosen client, with this installation's paths. -->
+                        <StackPanel Spacing="8">
+                            <ComboBox
+                                MinWidth="200"
+                                Header="Add COMrade to"
+                                ItemsSource="{x:Bind vm:SettingsTabViewModel.McpClientNames}"
+                                SelectedIndex="{x:Bind ViewModel.McpClientIndex, Mode=TwoWay}" />
+                            <TextBlock
+                                IsTextSelectionEnabled="True"
+                                Text="{x:Bind ViewModel.McpClient.Steps, Mode=OneWay}"
+                                TextWrapping="Wrap" />
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox
+                                    AcceptsReturn="True"
+                                    AutomationProperties.Name="Command or configuration to copy"
+                                    FontFamily="Cascadia Mono"
+                                    IsReadOnly="True"
+                                    Text="{x:Bind ViewModel.McpClient.Snippet, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                                <Button
+                                    Grid.Column="1"
+                                    VerticalAlignment="Top"
+                                    Command="{x:Bind ViewModel.CopyMcpClientSnippetCommand}"
+                                    Content="Copy" />
+                            </Grid>
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                IsTextSelectionEnabled="True"
+                                Text="{x:Bind ViewModel.McpClient.Note, Mode=OneWay}"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="When an assistant needs COMrade while it is closed, it starts COMrade, unless AI access is off."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource SectionStyle}">
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="2">
                             <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="New devices" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"

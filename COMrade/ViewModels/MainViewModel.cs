@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using COMrade.Core.Mcp;
 using COMrade.Core.Ports;
 using COMrade.Core.Sessions;
 using COMrade.Core.Settings;
@@ -18,14 +19,16 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly DeviceSettingsStore _devices;
     private readonly AppSettingsStore _settings;
     private readonly UpdateService _updates;
+    private readonly McpPipeServer _mcp;
 
-    public MainViewModel(PortListViewModel portList, PortSessions sessions, DeviceSettingsStore devices, AppSettingsStore settings, UpdateService updates)
+    public MainViewModel(PortListViewModel portList, PortSessions sessions, DeviceSettingsStore devices, AppSettingsStore settings, UpdateService updates, McpPipeServer mcp)
     {
         PortList = portList;
         _sessions = sessions;
         _devices = devices;
         _settings = settings;
         _updates = updates;
+        _mcp = mcp;
         _settings.Changed += OnSettingsChanged;
         _updates.Changed += OnUpdatesChanged;
     }
@@ -83,7 +86,7 @@ public sealed partial class MainViewModel : ObservableObject
         var tab = Tabs.OfType<SettingsTabViewModel>().FirstOrDefault();
         if (tab is null)
         {
-            tab = new SettingsTabViewModel(_settings, _devices, _updates);
+            tab = new SettingsTabViewModel(_settings, _devices, _updates, _mcp);
             Attach(tab, Tabs.Count);
         }
 

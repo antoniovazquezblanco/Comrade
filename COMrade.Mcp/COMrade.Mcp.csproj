@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The program AI assistants' MCP clients start: it relays MCP between the client and the running
+       COMrade (see Program.cs). It is published into COMrade's folder and shares its .NET runtime,
+       so it targets plain net10.0: a Windows target would bring the Windows SDK projection, possibly
+       in another version than the app's, into the same folder. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <RootNamespace>COMrade.Mcp</RootNamespace>
+    <AssemblyName>COMrade.Mcp</AssemblyName>
+    <Product>COMrade</Product>
+    <ApplicationIcon>..\COMrade\Assets\COMrade.ico</ApplicationIcon>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- The pipe's name and the settings check, shared with COMrade without referencing COMrade.Core. -->
+  <ItemGroup>
+    <Compile Include="..\COMrade.Core\Mcp\McpPipe.cs" Link="McpPipe.cs" />
+  </ItemGroup>
+
+</Project>

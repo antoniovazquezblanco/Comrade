@@ -157,6 +157,13 @@
                                                 Text="{x:Bind Header, Mode=OneWay}"
                                                 Visibility="{x:Bind IsRenaming, Mode=OneWay}" />
                                         </Grid>
+                                        <FontIcon
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.Name="AI assistant"
+                                            FontSize="12"
+                                            Glyph="&#xE99A;"
+                                            ToolTipService.ToolTip="An AI assistant is using this tab"
+                                            Visibility="{x:Bind IsAssistantConnected, Mode=OneWay}" />
                                     </StackPanel>
                                 </TabViewItem.Header>
                             </TabViewItem>

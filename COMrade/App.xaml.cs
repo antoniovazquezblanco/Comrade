@@ -1,6 +1,7 @@
 using System;
 using System.Net.Http;
 using System.Reflection;
+using COMrade.Core.Mcp;
 using COMrade.Core.Ports;
 using COMrade.Core.Serial;
 using COMrade.Core.Sessions;
@@ -32,9 +33,15 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        Services.GetRequiredService<WindowManager>().Start();
+        var windows = Services.GetRequiredService<WindowManager>();
+        windows.Start();
         // Created here, on the UI thread, where it then does its work.
         Services.GetRequiredService<UpdateService>().Start();
+
+        // AI assistants are let in once there is a window to show their tabs, and sent away with the last one.
+        var mcp = Services.GetRequiredService<McpPipeServer>();
+        mcp.Start();
+        windows.LastWindowClosed += async (_, _) => await mcp.DisposeAsync();
     }
 
     private static ServiceProvider ConfigureServices()
@@ -49,6 +56,13 @@ public partial class App : Application
         services.AddSingleton(new AppSettingsStore(AppSettingsStore.DefaultPath));
         services.AddSingleton(new UpdateChecker(new HttpClient { Timeout = TimeSpan.FromSeconds(20) }, Version));
         services.AddSingleton<UpdateService>();
+        services.AddSingleton<AssistantHost>();
+        services.AddSingleton(provider => new McpPipeServer(
+            provider.GetRequiredService<AssistantHost>(),
+            provider.GetRequiredService<PortList>(),
+            provider.GetRequiredService<DeviceSettingsStore>(),
+            provider.GetRequiredService<AppSettingsStore>(),
+            Version.ToString()));
 
         services.AddSingleton<PortListViewModel>();
 

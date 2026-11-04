@@ -82,6 +82,18 @@
                     <TextBlock Text="Log" />
                 </StackPanel>
             </ToggleButton>
+            <!-- While AI access is set to per tab in the settings. -->
+            <AppBarSeparator Visibility="{x:Bind ViewModel.ShowMcpToggle, Mode=OneWay}" />
+            <ToggleButton
+                AutomationProperties.Name="MCP"
+                IsChecked="{x:Bind ViewModel.IsMcpEnabled, Mode=TwoWay}"
+                ToolTipService.ToolTip="Let AI assistants use this device through MCP. Remembered for the device."
+                Visibility="{x:Bind ViewModel.ShowMcpToggle, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontSize="14" Glyph="&#xE99A;" />
+                    <TextBlock Text="MCP" />
+                </StackPanel>
+            </ToggleButton>
         </StackPanel>
 
         <!-- Bars, in their own row: nothing may be drawn over the terminal. -->
@@ -144,12 +156,26 @@
                 </Ellipse>
                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
             </StackPanel>
-            <!-- Logging, then the device's input lines (bright when on). -->
+            <!-- AI assistants, logging, then the device's input lines (bright when on). -->
             <StackPanel
                 Grid.Column="1"
                 HorizontalAlignment="Right"
                 Orientation="Horizontal"
                 Spacing="16">
+                <!-- An AI assistant using the tab, and what it did last. -->
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    Visibility="{x:Bind ViewModel.IsAssistantConnected, Mode=OneWay}">
+                    <FontIcon
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Glyph="&#xE99A;" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind ViewModel.AssistantText, Mode=OneWay}" />
+                </StackPanel>
                 <!-- Logging to a file. -->
                 <StackPanel
                     Orientation="Horizontal"

@@ -5,6 +5,7 @@ using COMrade.Core.Ports;
 using COMrade.ViewModels;
 using COMrade.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
 using Windows.Graphics;
 
 namespace COMrade.Windowing;
@@ -17,9 +18,16 @@ namespace COMrade.Windowing;
 public sealed class WindowManager(IServiceProvider services, PortWatcher watcher, PortListViewModel portList)
 {
     private readonly List<MainWindow> _windows = [];
+    private MainWindow? _lastActive;
+
+    /// <summary>The last window closed; the app exits next.</summary>
+    public event EventHandler? LastWindowClosed;
 
     /// <summary>The tab being dragged, while a drag is in progress; drags never leave the app.</summary>
     public DeviceTabViewModel? DraggedTab { get; set; }
+
+    /// <summary>The device tabs of every window.</summary>
+    public IEnumerable<DeviceTabViewModel> DeviceTabs => _windows.SelectMany(window => window.ViewModel.Tabs.OfType<DeviceTabViewModel>());
 
     /// <summary>Starts watching ports and opens the first window.</summary>
     public void Start()
@@ -38,8 +46,39 @@ public sealed class WindowManager(IServiceProvider services, PortWatcher watcher
             window.AppWindow.Move(at);
 
         _windows.Add(window);
+        window.Activated += (_, args) =>
+        {
+            if (args.WindowActivationState is not WindowActivationState.Deactivated)
+                _lastActive = window;
+        };
         window.Closed += (_, _) => OnClosed(window);
         return window;
+    }
+
+    /// <summary>
+    /// The device's tab, for an AI assistant: an existing one stays as it is, a new one opens in the
+    /// window used last. No window comes to the front, so the assistant does not take the focus.
+    /// </summary>
+    public DeviceTabViewModel OpenTab(SerialPortInfo port)
+    {
+        foreach (var window in _windows)
+        {
+            if (window.ViewModel.FindTab(port.Identity) is { } tab)
+                return tab;
+        }
+
+        var target = _lastActive ?? _windows.LastOrDefault() ?? throw new InvalidOperationException("COMrade has no window open.");
+        return target.ViewModel.OpenTab(port);
+    }
+
+    /// <summary>Selects the tab and brings its window to the front.</summary>
+    public void Show(DeviceTabViewModel tab)
+    {
+        if (WindowOf(tab) is not { } window)
+            return;
+
+        window.ViewModel.SelectedTab = tab;
+        window.Activate();
     }
 
     /// <summary>Shows the device's tab if a window already has it; a device has one tab at most.</summary>
@@ -105,11 +144,14 @@ public sealed class WindowManager(IServiceProvider services, PortWatcher watcher
     private void OnClosed(MainWindow window)
     {
         _windows.Remove(window);
+        if (_lastActive == window)
+            _lastActive = null;
         if (_windows.Count > 0)
             return;
 
         DriverHelpWindow.CloseIfOpen();
         portList.Dispose();
         watcher.Dispose();
+        LastWindowClosed?.Invoke(this, EventArgs.Empty);
     }
 }

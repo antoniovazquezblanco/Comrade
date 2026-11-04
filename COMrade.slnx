@@ -26,6 +26,7 @@
     <Platform Solution="*|x64" Project="x64" />
   </Project>
   <Project Path="COMrade.Core/COMrade.Core.csproj" />
+  <Project Path="COMrade.Mcp/COMrade.Mcp.csproj" />
   <Project Path="COMrade.Core.Tests/COMrade.Core.Tests.csproj" />
   <Project Path="COMrade.IntegrationTests/COMrade.IntegrationTests.csproj" />
   <Project Path="COMrade.Installer/COMrade.Installer.wixproj" Type="b7dd6f7e-def8-4e67-b5b7-07ef123db6f0">

@@ -6,12 +6,14 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using COMrade.Core.Mcp;
 using COMrade.Core.Settings;
 using COMrade.Core.Terminal;
 using COMrade.Core.Updates;
 using COMrade.Terminal;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
 
 namespace COMrade.ViewModels;
@@ -22,17 +24,21 @@ public sealed partial class SettingsTabViewModel : TabViewModel
     private readonly AppSettingsStore _settings;
     private readonly DeviceSettingsStore _devices;
     private readonly UpdateService _updates;
+    private readonly McpPipeServer _mcp;
     private readonly DispatcherQueue _ui = DispatcherQueue.GetForCurrentThread();
+    private int _mcpClientIndex;
 
-    public SettingsTabViewModel(AppSettingsStore settings, DeviceSettingsStore devices, UpdateService updates)
+    public SettingsTabViewModel(AppSettingsStore settings, DeviceSettingsStore devices, UpdateService updates, McpPipeServer mcp)
     {
         _settings = settings;
         _devices = devices;
         _updates = updates;
+        _mcp = mcp;
         NewDevice = new DeviceSettingsEditor(settings.Current.NewDevice, ApplyNewDeviceAsync);
 
         _devices.Changed += OnDevicesChanged;
         _updates.Changed += OnUpdatesChanged;
+        _mcp.Changed += OnMcpChanged;
         RefreshDevices();
     }
 
@@ -185,6 +191,94 @@ public sealed partial class SettingsTabViewModel : TabViewModel
         OnPropertyChanged(string.Empty);
     }
 
+    // AI assistants: what they may use, and how to connect one.
+
+    public bool IsAiOff
+    {
+        get => _settings.Current.AiAccess is AiAccess.Off;
+        set
+        {
+            if (value)
+                SetAiAccess(AiAccess.Off);
+        }
+    }
+
+    public bool IsAiPerTab
+    {
+        get => _settings.Current.AiAccess is AiAccess.PerTab;
+        set
+        {
+            if (value)
+                SetAiAccess(AiAccess.PerTab);
+        }
+    }
+
+    public bool IsAiAllPorts
+    {
+        get => _settings.Current.AiAccess is AiAccess.AllPorts;
+        set
+        {
+            if (value)
+                SetAiAccess(AiAccess.AllPorts);
+        }
+    }
+
+    public string AiStatus => _mcp.State switch
+    {
+        McpServerState.Listening => _mcp.Clients switch
+        {
+            0 => "Ready. No assistant is connected.",
+            1 => "1 assistant connected.",
+            var clients => $"{clients} assistants connected.",
+        },
+        McpServerState.Unavailable => "Another copy of COMrade is already serving AI assistants. Close it to serve them from this one.",
+        _ => "Off. COMrade does not accept AI assistants.",
+    };
+
+    /// <summary>The program AI clients start; it relays MCP to the running COMrade.</summary>
+    public static string RelayPath { get; } = Path.Combine(AppContext.BaseDirectory, "COMrade.Mcp.exe");
+
+    /// <summary>How to add COMrade to each MCP client, with this installation's paths.</summary>
+    public static IReadOnlyList<ClientSetup> McpClients { get; } =
+        ClientSetup.All(RelayPath, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+
+    public static IReadOnlyList<string> McpClientNames { get; } = [.. McpClients.Select(client => client.Name)];
+
+    /// <summary>The client whose setup shows, Claude Code first.</summary>
+    public int McpClientIndex
+    {
+        get => _mcpClientIndex;
+        set
+        {
+            if (value >= 0 && SetProperty(ref _mcpClientIndex, value))
+                OnPropertyChanged(nameof(McpClient));
+        }
+    }
+
+    public ClientSetup McpClient => McpClients[_mcpClientIndex];
+
+    [RelayCommand]
+    private void CopyMcpClientSnippet() => CopyToClipboard(McpClient.Snippet);
+
+    private void SetAiAccess(AiAccess access)
+    {
+        _settings.Update(settings => settings with { AiAccess = access });
+        OnPropertyChanged(nameof(IsAiOff));
+        OnPropertyChanged(nameof(IsAiPerTab));
+        OnPropertyChanged(nameof(IsAiAllPorts));
+        OnPropertyChanged(nameof(AiStatus));
+    }
+
+    // The server reports from its own threads.
+    private void OnMcpChanged(object? sender, EventArgs e) => _ui.TryEnqueue(() => OnPropertyChanged(nameof(AiStatus)));
+
+    private static void CopyToClipboard(string text)
+    {
+        var package = new DataPackage();
+        package.SetText(text);
+        Clipboard.SetContent(package);
+    }
+
     /// <summary>Settings for a device COMrade has not seen before.</summary>
     public DeviceSettingsEditor NewDevice { get; }
 
@@ -244,6 +338,7 @@ public sealed partial class SettingsTabViewModel : TabViewModel
     {
         _devices.Changed -= OnDevicesChanged;
         _updates.Changed -= OnUpdatesChanged;
+        _mcp.Changed -= OnMcpChanged;
     }
 
     // Raised on the UI thread.

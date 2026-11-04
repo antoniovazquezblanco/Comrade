@@ -64,6 +64,7 @@ public sealed partial class DeviceTabViewModel : TabViewModel
         _clock.Start();
 
         History.Written += OnHistoryWritten;
+        _appSettings.Changed += OnAppSettingsChanged;
     }
 
     /// <summary>A line to show in the terminal, such as the reconnect marker. Raised on the UI thread.</summary>
@@ -362,6 +363,7 @@ public sealed partial class DeviceTabViewModel : TabViewModel
 
     public override void Dispose()
     {
+        _appSettings.Changed -= OnAppSettingsChanged;
         History.Written -= OnHistoryWritten;
         StopLog();
         _clock.Stop();
@@ -408,11 +410,12 @@ public sealed partial class DeviceTabViewModel : TabViewModel
     private double LineOpacity(ModemLines line) => Session.ModemLines.HasFlag(line) ? 1 : 0.35;
 
     // The toggles show what the session holds, also when the port failed to take it.
-    private async Task SetControlLinesAsync(ControlLines lines)
+    private async Task<bool> SetControlLinesAsync(ControlLines lines)
     {
-        await Session.SetControlLinesAsync(lines);
+        var set = await Session.SetControlLinesAsync(lines);
         OnPropertyChanged(nameof(IsDtr));
         OnPropertyChanged(nameof(IsRts));
+        return set;
     }
 
     private void UpdateState()

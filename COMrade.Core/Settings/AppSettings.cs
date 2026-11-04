@@ -9,12 +9,14 @@ namespace COMrade.Core.Settings;
 /// <param name="Terminal">Font, colours and cursor of every terminal; null in files from before it existed.</param>
 /// <param name="Logging">How sessions are logged to files; null in files from before it existed.</param>
 /// <param name="Updates">How COMrade looks for new releases; null in files from before it existed.</param>
+/// <param name="AiAccess">What AI assistants may use; off until the user turns it on.</param>
 public sealed record AppSettings(
     DeviceSettings NewDevice,
     TabMode TabMode = TabMode.Compact,
     TerminalAppearance? Terminal = null,
     LogSettings? Logging = null,
-    UpdateSettings? Updates = null)
+    UpdateSettings? Updates = null,
+    AiAccess AiAccess = AiAccess.Off)
 {
     public static AppSettings Default { get; } = new(DeviceSettings.Default, Terminal: TerminalAppearance.Default);
 
