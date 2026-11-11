@@ -38,7 +38,7 @@ public interface IAssistantTab
     Task OpenAsync();
 
     /// <summary>
-    /// Sends bytes as typing does; false when the port is not open or failed. With local echo on,
+    /// Sends bytes as typing does, kept in the traffic as an assistant's; false when the port is not open or failed. With local echo on,
     /// the terminal shows <paramref name="typed"/>: the text as typed, Enter as CR (none for raw bytes).
     /// </summary>
     Task<bool> SendAsync(byte[] data, string? typed);

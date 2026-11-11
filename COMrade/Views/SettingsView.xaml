@@ -291,6 +291,10 @@
                         </StackPanel>
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="Assistants also read what you type in the tabs they use, passwords included."
+                            TextWrapping="Wrap" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Text="{x:Bind ViewModel.AiStatus, Mode=OneWay}"
                             TextWrapping="Wrap" />
                         <!-- How to add COMrade to the chosen client, with this installation's paths. -->

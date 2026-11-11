@@ -49,7 +49,9 @@ other control keys devices use.
 
 AI assistants can use your serial devices through COMrade over the [Model Context Protocol](https://modelcontextprotocol.io) (MCP).
 They can list and open ports, send commands and wait for the replies, read the output, and drive DTR, RTS and break.
-They can also rename, clear and log tabs.
+They can also read what went over a port both ways, each piece marked as received from the device or sent to it and by whom
+(you typing, an assistant or COMrade), and rename, clear and log tabs. What you type in those tabs reaches them too, passwords
+included.
 Everything they do happens in COMrade's tabs, where you see it and can type at any time.
 
 AI access is off until you turn it on in Settings, under AI assistants:

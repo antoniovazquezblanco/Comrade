@@ -144,6 +144,6 @@ public sealed class DeviceTerminal : IDisposable
         if (_settings.LocalEcho)
             _history.Write(KeyboardInput.Echo(text));
 
-        _ = _session.SendAsync(KeyboardInput.Encode(text, _session.Settings.SendLineEnding));
+        _ = _session.SendAsync(KeyboardInput.Encode(text, _session.Settings.SendLineEnding), TrafficSender.Keyboard);
     }
 }

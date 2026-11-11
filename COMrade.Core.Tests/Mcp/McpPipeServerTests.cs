@@ -13,8 +13,8 @@ public sealed class McpPipeServerTests : IAsyncDisposable
 {
     private static readonly string[] ToolNames =
     [
-        "clear_terminal", "close_port", "configure_port", "list_ports", "open_port", "port_status", "read", "rename_tab",
-        "send_break", "send_command", "set_control_lines", "set_logging", "show_tab", "wait_for", "write",
+        "clear_terminal", "close_port", "configure_port", "list_ports", "open_port", "port_status", "read", "read_traffic",
+        "rename_tab", "send_break", "send_command", "set_control_lines", "set_logging", "show_tab", "wait_for", "write",
     ];
 
     private readonly string _folder = Path.Combine(Path.GetTempPath(), $"comrade-tests-{Guid.NewGuid():N}");
@@ -81,7 +81,7 @@ public sealed class McpPipeServerTests : IAsyncDisposable
         var tools = await (await ConnectAsync()).ListToolsAsync(cancellationToken: Cancellation);
 
         var readOnly = tools.Where(tool => tool.ProtocolTool.Annotations is { ReadOnlyHint: true }).Select(tool => tool.Name).Order();
-        Assert.Equal(["list_ports", "port_status", "read", "wait_for"], readOnly);
+        Assert.Equal(["list_ports", "port_status", "read", "read_traffic", "wait_for"], readOnly);
     }
 
     [Fact]
