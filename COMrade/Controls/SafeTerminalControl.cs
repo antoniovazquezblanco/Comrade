@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Microsoft.Terminal.Wpf;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation.Peers;
@@ -9,13 +10,14 @@ using Windows.Foundation;
 
 namespace COMrade.Controls;
 
-/// <summary>Windows Terminal's control with two crashes fixed and a way to scroll it.</summary>
+/// <summary>Windows Terminal's control with two crashes fixed and ways to scroll it and clear its selection.</summary>
 public sealed partial class SafeTerminalControl : TerminalControl
 {
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
     private readonly MethodInfo? _passFocus;
     private readonly MethodInfo? _userScroll;
+    private readonly FieldInfo? _terminal;
     private readonly object? _container;
 
     public SafeTerminalControl()
@@ -27,6 +29,7 @@ public sealed partial class SafeTerminalControl : TerminalControl
         _container = typeof(TerminalControl).GetField("termContainer", Private)?.GetValue(this);
         _passFocus = _container?.GetType().GetMethod("PassFocus", Private);
         _userScroll = _container?.GetType().GetMethod("UserScroll", Private);
+        _terminal = _container?.GetType().GetField("terminal", Private);
         if (original is null || _passFocus is null)
             return;
 
@@ -56,6 +59,18 @@ public sealed partial class SafeTerminalControl : TerminalControl
         _userScroll.Invoke(_container, [Math.Max(top, 0)]);
     }
 
+    /// <summary>
+    /// Clears the selection, as typing does. New output does not move the view while text is
+    /// selected, and the selection stays until the user clicks or types.
+    /// </summary>
+    public void ClearSelection()
+    {
+        // The native terminal exists while the control is loaded. Escape clears the selection and
+        // goes no further, but without a selection it would reach the device as typed.
+        if (_terminal?.GetValue(_container) is nint terminal && terminal != 0 && TerminalIsSelectionActive(terminal))
+            TerminalSendCharEvent(terminal, '\e', 0, 0);
+    }
+
     private void OnGettingFocus(UIElement sender, GettingFocusEventArgs args)
     {
         if (args.TryCancel())
@@ -66,4 +81,11 @@ public sealed partial class SafeTerminalControl : TerminalControl
     }
 
     private void PassFocus() => _passFocus!.Invoke(_container, null);
+
+    [DllImport("Microsoft.Terminal.Control.dll")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern bool TerminalIsSelectionActive(IntPtr terminal);
+
+    [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode)]
+    private static extern void TerminalSendCharEvent(IntPtr terminal, char ch, ushort scanCode, ushort flags);
 }
