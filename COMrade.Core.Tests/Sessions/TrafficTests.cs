@@ -150,6 +150,39 @@ public class TrafficTests
         await wait.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
+    [Fact]
+    public void Each_byte_has_the_time_its_chunk_arrived()
+    {
+        _traffic.Append(TrafficSender.Device, "ab"u8, At);
+        _traffic.Append(TrafficSender.Device, "cd"u8, At.AddMilliseconds(10));
+        _traffic.Append(TrafficSender.Comrade, "e"u8, At.AddMilliseconds(10));
+        _traffic.Append(TrafficSender.Device, "f"u8, At.AddMilliseconds(30));
+
+        Assert.Equal(
+            [At, At, At.AddMilliseconds(10), At.AddMilliseconds(10), At.AddMilliseconds(10), At.AddMilliseconds(30), null],
+            Enumerable.Range(0, 7).Select(offset => _traffic.ArrivedAt(offset)));
+    }
+
+    [Fact]
+    public void Bytes_whose_chunk_time_went_have_their_runs_time()
+    {
+        var traffic = new Traffic(maxRuns: 4);
+        for (var i = 0; i < 6; i++)
+            traffic.Append(TrafficSender.Device, "x"u8, At.AddMilliseconds(10 * i));
+
+        // Two chunk times made room for newer ones; the run they are in keeps its own.
+        Assert.Equal([At, At, At.AddMilliseconds(20), At.AddMilliseconds(50)], new long[] { 0, 1, 2, 5 }.Select(offset => traffic.ArrivedAt(offset)));
+    }
+
+    [Fact]
+    public void Bytes_no_longer_kept_have_no_time()
+    {
+        var traffic = new Traffic(limit: 4);
+        traffic.Append(TrafficSender.Device, "abcdef"u8, At);
+
+        Assert.Equal([null, At], new long[] { 1, 2 }.Select(offset => traffic.ArrivedAt(offset)));
+    }
+
     private static (TrafficSender, DateTimeOffset, string) Run(TrafficSender sender, DateTimeOffset at, string text) => (sender, at, text);
 
     private static (TrafficSender, DateTimeOffset, string) Plain(TrafficRun run) =>

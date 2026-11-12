@@ -101,7 +101,8 @@
             <Button
                 x:Name="FindButton"
                 AutomationProperties.Name="Find"
-                Click="OnFindClick">
+                Click="OnFindClick"
+                IsEnabled="{x:Bind ViewModel.CanFind, Mode=OneWay}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon FontSize="14" Glyph="&#xE721;" />
                     <TextBlock Text="Find" />
@@ -116,6 +117,31 @@
                     <TextBlock Text="Log" />
                 </StackPanel>
             </ToggleButton>
+            <!-- What the tab shows, remembered for the device. -->
+            <AppBarSeparator />
+            <DropDownButton AutomationProperties.Name="View" ToolTipService.ToolTip="What the tab shows">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontSize="14" Glyph="&#xE890;" />
+                    <TextBlock Text="{x:Bind ViewModel.ViewName, Mode=OneWay}" />
+                </StackPanel>
+                <DropDownButton.Flyout>
+                    <!-- A window of its own: the terminal below is a native window that hides anything drawn in the main window. -->
+                    <MenuFlyout Placement="BottomEdgeAlignedLeft" ShouldConstrainToRootBounds="False">
+                        <RadioMenuFlyoutItem
+                            Click="OnTerminalViewClick"
+                            GroupName="View"
+                            IsChecked="{x:Bind ViewModel.IsTerminalView, Mode=OneWay}"
+                            Text="Terminal"
+                            ToolTipService.ToolTip="The output as the device means it to look" />
+                        <RadioMenuFlyoutItem
+                            Click="OnAnalysisViewClick"
+                            GroupName="View"
+                            IsChecked="{x:Bind ViewModel.IsAnalysisView, Mode=OneWay}"
+                            Text="Analysis"
+                            ToolTipService.ToolTip="What went over the port both ways, by time and sender" />
+                    </MenuFlyout>
+                </DropDownButton.Flyout>
+            </DropDownButton>
             <!-- While AI access is set to per tab in the settings. -->
             <AppBarSeparator Visibility="{x:Bind ViewModel.ShowMcpToggle, Mode=OneWay}" />
             <ToggleButton
@@ -188,13 +214,14 @@
                 Severity="Error" />
         </StackPanel>
 
-        <!-- The terminal, and the find panel beside it: nothing may be drawn over the terminal. -->
+        <!-- The terminal or the analysis, and the find panel beside them: nothing may be drawn over the terminal. -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <controls:TerminalView x:Name="Terminal" />
+            <controls:TrafficPane x:Name="TrafficPane" Visibility="Collapsed" />
             <Grid
                 Grid.Column="1"
                 Width="320"

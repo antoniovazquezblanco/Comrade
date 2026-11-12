@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="COMrade.Controls.TrafficPane"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    IsTabStop="True"
+    KeyDown="OnKeyDown">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- The columns, and the way back to the newest rows while scrolled up: as tall either way, so the rows do not move. -->
+        <Grid
+            MinHeight="32"
+            Padding="8,2"
+            Background="{ThemeResource LayerFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="0,0,0,1"
+            ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock
+                x:Name="Header"
+                VerticalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                TextTrimming="Clip" />
+            <HyperlinkButton
+                x:Name="BottomButton"
+                Grid.Column="1"
+                Padding="4,0"
+                Click="OnBottomClick"
+                FontSize="12"
+                Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon FontSize="12" Glyph="&#xE74B;" />
+                    <TextBlock Text="Go to bottom" />
+                </StackPanel>
+            </HyperlinkButton>
+        </Grid>
+
+        <!-- Only the rows on screen exist: a long history costs no more to show than a short one. -->
+        <Grid x:Name="Rows" Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Canvas
+                x:Name="Surface"
+                Background="Transparent"
+                PointerCaptureLost="OnSurfaceCaptureLost"
+                PointerMoved="OnSurfaceMoved"
+                PointerPressed="OnSurfacePressed"
+                PointerReleased="OnSurfaceReleased"
+                PointerWheelChanged="OnSurfaceWheel"
+                SizeChanged="OnSurfaceSizeChanged">
+                <Canvas.ContextFlyout>
+                    <!-- A window of its own: the terminal beside the pane is a native window that hides anything drawn in the main window. -->
+                    <MenuFlyout Opening="OnMenuOpening" ShouldConstrainToRootBounds="False">
+                        <MenuFlyoutItem
+                            x:Name="CopyRowsItem"
+                            Click="OnCopyRowsClick"
+                            Text="Copy rows" />
+                        <MenuFlyoutItem
+                            x:Name="CopyTextItem"
+                            Click="OnCopyTextClick"
+                            Text="Copy text only" />
+                    </MenuFlyout>
+                </Canvas.ContextFlyout>
+                <!-- Measures a cell of the font. -->
+                <TextBlock
+                    x:Name="Probe"
+                    IsHitTestVisible="False"
+                    Opacity="0" />
+            </Canvas>
+            <ScrollBar
+                x:Name="Scroll"
+                Grid.Column="1"
+                IndicatorMode="MouseIndicator"
+                Orientation="Vertical"
+                SmallChange="1"
+                ValueChanged="OnScrollChanged" />
+        </Grid>
+    </Grid>
+</UserControl>

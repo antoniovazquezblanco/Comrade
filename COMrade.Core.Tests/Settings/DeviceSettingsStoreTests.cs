@@ -32,7 +32,8 @@ public sealed class DeviceSettingsStoreTests : IDisposable
         var settings = new DeviceSettings(
             SerialSettings.Default with { BaudRate = 9600, Parity = Parity.Even, SendLineEnding = LineEnding.CrLf },
             new TerminalSettings(LocalEcho: true, NewLineOnLf: false, NewLineOnCr: true),
-            ReopenAutomatically: false);
+            ReopenAutomatically: false,
+            View: OutputView.Analysis);
 
         new DeviceSettingsStore(FilePath).Save(Ch340, settings, Now);
         var remembered = new DeviceSettingsStore(FilePath).Find(Ch340);

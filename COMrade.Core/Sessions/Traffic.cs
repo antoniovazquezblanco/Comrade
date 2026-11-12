@@ -21,9 +21,10 @@ public enum TrafficSender
 public sealed record TrafficRun(TrafficSender Sender, DateTimeOffset At, byte[] Bytes);
 
 /// <summary>
-/// Both directions of a session's port in the order they went over it, for AI assistants: what the
-/// device sent and what was sent to it, in runs marked with who sent them and when. Keeps the most
-/// recent bytes, as <see cref="ReceiveBuffer"/> does, with offsets that count from the first byte.
+/// Both directions of a session's port in the order they went over it, for AI assistants and the
+/// tab's analysis view: what the device sent and what was sent to it, in runs marked with who sent
+/// them and when, and when each chunk of them arrived. Keeps the most recent bytes, as
+/// <see cref="ReceiveBuffer"/> does, with offsets that count from the first byte.
 /// </summary>
 /// <remarks>Thread-safe: received data arrives on a background thread.</remarks>
 public sealed class Traffic(int limit = Traffic.DefaultLimit, int maxRuns = Traffic.DefaultMaxRuns)
@@ -42,6 +43,9 @@ public sealed class Traffic(int limit = Traffic.DefaultLimit, int maxRuns = Traf
     private readonly Lock _lock = new();
     private readonly ReceiveBuffer _bytes = new(limit);
     private readonly List<Run> _runs = [];
+
+    // When each chunk arrived, kept as the runs are: no more of them, and the oldest go in batches.
+    private readonly List<Arrival> _arrivals = [];
     private DateTimeOffset _last;
 
     /// <summary>Offset of the oldest byte kept.</summary>
@@ -71,13 +75,45 @@ public sealed class Traffic(int limit = Traffic.DefaultLimit, int maxRuns = Traf
                 _runs.Add(new Run(_bytes.End, sender, at));
             }
 
+            if (_arrivals.Count == 0 || _arrivals[^1].At != at)
+            {
+                if (_arrivals.Count == maxRuns)
+                    _arrivals.RemoveRange(0, Math.Max(1, maxRuns / 4));
+                _arrivals.Add(new Arrival(_bytes.End, at));
+            }
+
             _last = at;
             _bytes.Append(data);
 
-            // Runs whose bytes are gone, many at once: reads skip them meanwhile.
+            // Runs and arrivals whose bytes are gone, many at once: reads skip them meanwhile.
             var gone = RunAt(_bytes.Start);
             if (gone > 0 && gone >= _runs.Count / 4)
                 _runs.RemoveRange(0, gone);
+            var arrived = ArrivalAt(_bytes.Start);
+            if (arrived > 0 && arrived >= _arrivals.Count / 4)
+                _arrivals.RemoveRange(0, arrived);
+        }
+    }
+
+    /// <summary>
+    /// When the byte at <paramref name="offset"/> went over the port, as precisely as the chunk it
+    /// came in tells, or when its run started once that chunk's time is no longer kept. Null for a
+    /// byte that is not kept.
+    /// </summary>
+    public DateTimeOffset? ArrivedAt(long offset)
+    {
+        lock (_lock)
+        {
+            if (_runs.Count == 0 || offset < OldestKept() || offset >= _bytes.End)
+                return null;
+
+            var run = _runs[RunAt(offset)];
+            if (_arrivals.Count == 0)
+                return run.At;
+
+            // An arrival before the run is another sender's chunk, or the first kept after this one's went.
+            var arrival = _arrivals[ArrivalAt(offset)];
+            return arrival.Offset <= offset && arrival.Offset >= run.Offset ? arrival.At : run.At;
         }
     }
 
@@ -126,5 +162,23 @@ public sealed class Traffic(int limit = Traffic.DefaultLimit, int maxRuns = Traf
         return low;
     }
 
+    // Must be called holding the lock: the last arrival at or before offset, or the first.
+    private int ArrivalAt(long offset)
+    {
+        var (low, high) = (0, _arrivals.Count - 1);
+        while (low < high)
+        {
+            var middle = (low + high + 1) / 2;
+            if (_arrivals[middle].Offset <= offset)
+                low = middle;
+            else
+                high = middle - 1;
+        }
+
+        return low;
+    }
+
     private readonly record struct Run(long Offset, TrafficSender Sender, DateTimeOffset At);
+
+    private readonly record struct Arrival(long Offset, DateTimeOffset At);
 }
