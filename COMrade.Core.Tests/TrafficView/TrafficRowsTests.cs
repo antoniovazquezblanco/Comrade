@@ -62,6 +62,29 @@ public class TrafficRowsTests
     }
 
     [Fact]
+    public void A_row_that_has_its_bytes_wraps_and_a_line_feed_still_ends_one()
+    {
+        _rows.Resize(columns: 80, maxBytes: 4);
+        Append(TrafficSender.Device, "abcdefg\nhi");
+
+        _rows.Update();
+
+        Assert.Equal([("abcd", false), (@"efg\n", true), ("hi", false)], Rows().Select(row => (Text(row), row.Continues)));
+    }
+
+    [Fact]
+    public void A_character_is_not_split_to_fill_a_rows_bytes()
+    {
+        _rows.MaxBytes = 4;
+        Append(TrafficSender.Device, [(byte)'a', (byte)'b', (byte)'c', 0xC3, 0xA9, (byte)'d']);
+
+        _rows.Update();
+
+        Assert.Equal([3, 3], Rows().Select(row => row.Length));
+        Assert.Equal(["abc", "éd"], Shown());
+    }
+
+    [Fact]
     public void Escapes_take_their_width_and_characters_are_not_split()
     {
         _rows.Columns = 4;
@@ -116,7 +139,7 @@ public class TrafficRowsTests
     {
         var random = new Random(7);
         string[] pieces = ["ok", "\r\n", "é", "\x1b[32m", "long line that wraps", "\\", " "];
-        _rows.Columns = 7;
+        _rows.Resize(columns: 7, maxBytes: 5);
         for (var i = 0; i < 400; i++)
         {
             var sender = random.Next(5) == 0 ? TrafficSender.Keyboard : TrafficSender.Device;
@@ -134,8 +157,8 @@ public class TrafficRowsTests
         }
 
         _rows.Update();
-        var atOnce = new TrafficRows(_traffic) { Columns = 7 };
-        atOnce.Update();
+        var atOnce = new TrafficRows(_traffic);
+        atOnce.Resize(columns: 7, maxBytes: 5);
 
         Assert.Equal(Rows(atOnce), Rows());
         Assert.Equal(_traffic.End, Rows().Last().End);
