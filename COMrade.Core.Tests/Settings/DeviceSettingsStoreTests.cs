@@ -2,6 +2,7 @@ using COMrade.Core.Ports;
 using COMrade.Core.Serial;
 using COMrade.Core.Settings;
 using COMrade.Core.Terminal;
+using COMrade.Core.TrafficView;
 
 namespace COMrade.Core.Tests.Settings;
 
@@ -33,7 +34,8 @@ public sealed class DeviceSettingsStoreTests : IDisposable
             SerialSettings.Default with { BaudRate = 9600, Parity = Parity.Even, SendLineEnding = LineEnding.CrLf },
             new TerminalSettings(LocalEcho: true, NewLineOnLf: false, NewLineOnCr: true),
             ReopenAutomatically: false,
-            View: OutputView.Analysis);
+            View: OutputView.Analysis,
+            HiddenAnalysisColumns: AnalysisColumns.Time | AnalysisColumns.Hex);
 
         new DeviceSettingsStore(FilePath).Save(Ch340, settings, Now);
         var remembered = new DeviceSettingsStore(FilePath).Find(Ch340);

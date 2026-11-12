@@ -1,5 +1,6 @@
 using COMrade.Core.Serial;
 using COMrade.Core.Terminal;
+using COMrade.Core.TrafficView;
 
 namespace COMrade.Core.Settings;
 
@@ -7,13 +8,15 @@ namespace COMrade.Core.Settings;
 /// <param name="Name">Name the user gave the device's tab, e.g. "Router console"; null for the default title.</param>
 /// <param name="McpEnabled">AI assistants may use the device while AI access is set to per tab.</param>
 /// <param name="View">What the tab shows: the terminal, or the analysis of what went over the port.</param>
+/// <param name="HiddenAnalysisColumns">The analysis view's columns the user hid; columns added later show.</param>
 public sealed record DeviceSettings(
     SerialSettings Serial,
     TerminalSettings Terminal,
     bool ReopenAutomatically = true,
     string? Name = null,
     bool McpEnabled = false,
-    OutputView View = OutputView.Terminal)
+    OutputView View = OutputView.Terminal,
+    AnalysisColumns HiddenAnalysisColumns = AnalysisColumns.None)
 {
     /// <summary>Settings for a device COMrade has not seen before.</summary>
     public static DeviceSettings Default { get; } = new(SerialSettings.Default, TerminalSettings.Default);
