@@ -25,6 +25,7 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
     private readonly AppSettingsStore _settings;
     private readonly DispatcherQueueTimer _highlightLater;
     private bool _wasOpen;
+    private OutputView? _shownView;
 
     // The search the terminal shows highlighted, if any, and whether it was searched again since.
     private Marks? _highlighted;
@@ -47,8 +48,10 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         viewModel.PropertyChanged += OnPropertyChanged;
         Terminal.IsScrolledUpChanged += OnIsScrolledUpChanged;
 
-        // Hidden tabs must hide the terminal itself, see TerminalView.
-        RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => Terminal.Visibility = Visibility);
+        // Hidden tabs must hide the terminal itself, see TerminalView; the traffic stops following.
+        TrafficPane.Model = viewModel.Traffic;
+        RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => ApplyView());
+        ApplyView();
 
         // Highlights wait for typing to pause. A tab moved to another window shows its highlights
         // again.
@@ -64,11 +67,20 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
 
     public DeviceTabViewModel ViewModel { get; }
 
-    public void FocusTerminal() => Terminal.FocusTerminal();
+    /// <summary>Puts the keyboard focus in the terminal, or in the analysis when it shows.</summary>
+    public void FocusTerminal()
+    {
+        if (ViewModel.View is OutputView.Analysis)
+            TrafficPane.Focus(FocusState.Programmatic);
+        else
+            Terminal.FocusTerminal();
+    }
 
-    /// <summary>Opens the find panel with the latest output and puts the cursor in it.</summary>
+    /// <summary>Opens the find panel with the latest output and puts the cursor in it; not in the analysis.</summary>
     public void ShowFind()
     {
+        if (!ViewModel.CanFind)
+            return;
         ViewModel.Find.Open();
         DispatcherQueue.TryEnqueue(() =>
         {
@@ -84,7 +96,7 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
     private void CloseFind()
     {
         ViewModel.Find.CloseCommand.Execute(null);
-        Terminal.FocusTerminal();
+        FocusTerminal();
     }
 
     private void OnFindKeyDown(object sender, KeyRoutedEventArgs e)
@@ -193,11 +205,15 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
             case ShortcutAction.SendBreak:
                 ViewModel.BreakCommand.Execute(null);
                 return true;
+            case ShortcutAction.Copy when AnalysisShows:
+                TrafficPane.Copy();
+                return true;
             case ShortcutAction.Copy:
                 Terminal.Copy();
                 return true;
             case ShortcutAction.Paste:
-                Terminal.Paste();
+                if (!AnalysisShows)
+                    Terminal.Paste();
                 return true;
             case ShortcutAction.Find:
                 ShowFind();
@@ -208,14 +224,26 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
             case ShortcutAction.StartOrStopLogging:
                 ViewModel.IsLogging = !ViewModel.IsLogging;
                 return true;
+            case ShortcutAction.ScrollToTop when AnalysisShows:
+                TrafficPane.ScrollToTop();
+                return true;
             case ShortcutAction.ScrollToTop:
                 Terminal.ScrollToTop();
+                return true;
+            case ShortcutAction.ScrollPageUp when AnalysisShows:
+                TrafficPane.ScrollPages(-1);
                 return true;
             case ShortcutAction.ScrollPageUp:
                 Terminal.ScrollPages(-1);
                 return true;
+            case ShortcutAction.ScrollPageDown when AnalysisShows:
+                TrafficPane.ScrollPages(1);
+                return true;
             case ShortcutAction.ScrollPageDown:
                 Terminal.ScrollPages(1);
+                return true;
+            case ShortcutAction.ScrollToBottom when AnalysisShows:
+                TrafficPane.ScrollToBottom();
                 return true;
             case ShortcutAction.ScrollToBottom:
                 Terminal.ScrollToBottom();
@@ -225,9 +253,14 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         }
     }
 
+    // Copying and scrolling act on the analysis while it shows.
+    private bool AnalysisShows => ViewModel.View is OutputView.Analysis;
+
     public void Dispose()
     {
         ViewModel.PickLogFile = null;
+        ViewModel.Traffic.IsActive = false;
+        TrafficPane.Model = null;
         _settings.Changed -= OnSettingsChanged;
         ViewModel.TerminalSettingsChanged -= OnTerminalSettingsChanged;
         ViewModel.TerminalMessage -= OnTerminalMessage;
@@ -253,12 +286,13 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
     {
         var settings = _settings.Current;
         Terminal.Appearance = settings.TerminalOrDefault;
+        TrafficPane.Appearance = settings.TerminalOrDefault;
 
         var keymap = settings.Keymap;
         SetToolTip(OpenPortButton, "Open the port", ShortcutAction.OpenOrClosePort);
         SetToolTip(ClosePortButton, "Close the port", ShortcutAction.OpenOrClosePort);
         SetToolTip(BreakButton, "Send a break of 250 ms", ShortcutAction.SendBreak);
-        SetToolTip(ClearButton, "Clear the terminal", ShortcutAction.ClearTerminal);
+        SetToolTip(ClearButton, "Clear the terminal and the analysis", ShortcutAction.ClearTerminal);
         SetToolTip(FindButton, "Find in the output", ShortcutAction.Find);
         SetToolTip(LogButton, "Log this session to a file", ShortcutAction.StartOrStopLogging);
         SetToolTip(ScrollToBottomButton, "Show the newest output", ShortcutAction.ScrollToBottom);
@@ -296,14 +330,39 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         ViewModel.DetectSpeedCommand.Execute(null);
     }
 
-    // Typing can start as soon as the port opens.
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is null or "" or nameof(DeviceTabViewModel.View))
+            ApplyView();
+
+        // Typing can start as soon as the port opens.
         var isOpen = ViewModel.Session.State is PortSessionState.Open;
-        if (isOpen && !_wasOpen && Visibility is Visibility.Visible)
+        if (isOpen && !_wasOpen && Visibility is Visibility.Visible && !AnalysisShows)
             Terminal.FocusTerminal();
         _wasOpen = isOpen;
     }
+
+    // The terminal or the analysis. The terminal is a native window, so it hides itself; the
+    // analysis follows the traffic only while it shows. Find searches the terminal: it closes for
+    // the analysis. A view chosen takes the keyboard focus.
+    private void ApplyView()
+    {
+        var analysis = AnalysisShows;
+        var shown = Visibility is Visibility.Visible;
+        TrafficPane.Visibility = analysis ? Visibility.Visible : Visibility.Collapsed;
+        Terminal.Visibility = shown && !analysis ? Visibility.Visible : Visibility.Collapsed;
+        ViewModel.Traffic.IsActive = shown && analysis;
+        if (analysis && ViewModel.Find.IsOpen)
+            ViewModel.Find.CloseCommand.Execute(null);
+
+        if (_shownView is { } before && before != ViewModel.View && shown)
+            FocusTerminal();
+        _shownView = ViewModel.View;
+    }
+
+    private void OnTerminalViewClick(object sender, RoutedEventArgs e) => ViewModel.View = OutputView.Terminal;
+
+    private void OnAnalysisViewClick(object sender, RoutedEventArgs e) => ViewModel.View = OutputView.Analysis;
 
     // The Save dialog needs the window it belongs to. It starts in the log folder the first time
     // and then where the last log was saved.

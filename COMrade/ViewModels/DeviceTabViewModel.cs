@@ -53,6 +53,7 @@ public sealed partial class DeviceTabViewModel : TabViewModel
         Session = session;
         Editor = new DeviceSettingsEditor(settings, ApplyAsync);
         Find = new FindViewModel(History, appSettings);
+        Traffic = new TrafficViewModel(session.Traffic);
         _store = store;
         _appSettings = appSettings;
         _ui = DispatcherQueue.GetForCurrentThread();
@@ -93,6 +94,31 @@ public sealed partial class DeviceTabViewModel : TabViewModel
 
     /// <summary>The find panel, searching <see cref="History"/>.</summary>
     public FindViewModel Find { get; }
+
+    /// <summary>The analysis view: what went over the port both ways, by time and sender.</summary>
+    public TrafficViewModel Traffic { get; }
+
+    // What the tab shows: the terminal or the analysis, remembered for the device.
+
+    public OutputView View
+    {
+        get => Settings.View;
+        set
+        {
+            if (value != Settings.View)
+                _ = Editor.ChangeAsync(Settings with { View = value });
+        }
+    }
+
+    public bool IsTerminalView => View is OutputView.Terminal;
+
+    public bool IsAnalysisView => View is OutputView.Analysis;
+
+    /// <summary>The view's name in the toolbar's dropdown.</summary>
+    public string ViewName => View is OutputView.Analysis ? "Analysis" : "Terminal";
+
+    /// <summary>Find searches the terminal's text: not in the analysis.</summary>
+    public bool CanFind => View is OutputView.Terminal;
 
     // Tab, toolbar and settings card.
 
@@ -264,7 +290,11 @@ public sealed partial class DeviceTabViewModel : TabViewModel
     private Task BreakAsync() => Session.SendBreakAsync(BreakDuration);
 
     [RelayCommand]
-    private void Clear() => ClearRequested?.Invoke(this, EventArgs.Empty);
+    private void Clear()
+    {
+        Traffic.Clear();
+        ClearRequested?.Invoke(this, EventArgs.Empty);
+    }
 
     // Speed detection: the device is listened to at one common speed after another, see BaudRateDetector.
 
@@ -491,6 +521,7 @@ public sealed partial class DeviceTabViewModel : TabViewModel
         _detection?.Cancel();
         _appSettings.Changed -= OnAppSettingsChanged;
         Find.Dispose();
+        Traffic.Dispose();
         History.Written -= OnHistoryWritten;
         StopLog();
         _clock.Stop();

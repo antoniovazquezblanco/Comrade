@@ -137,7 +137,7 @@ public sealed partial class TerminalView : UserControl
     public void Copy()
     {
         if (Term.GetSelectedText() is { Length: > 0 } selection)
-            CopyToClipboard(selection);
+            ClipboardText.Set(selection);
     }
 
     /// <summary>Sends the clipboard text as if it had been typed.</summary>
@@ -181,7 +181,7 @@ public sealed partial class TerminalView : UserControl
     {
         if (data == CtrlC && Term.GetSelectedText() is { Length: > 0 } selection)
         {
-            CopyToClipboard(selection);
+            ClipboardText.Set(selection);
             return;
         }
 
@@ -245,20 +245,6 @@ public sealed partial class TerminalView : UserControl
 
     // The control takes colours as Win32 COLORREF values, 0x00BBGGRR; COMrade keeps 0xRRGGBB.
     private static uint ColorRef(uint rgb) => ((rgb >> 16) & 0xFF) | (rgb & 0xFF00) | ((rgb & 0xFF) << 16);
-
-    private static void CopyToClipboard(string text)
-    {
-        var package = new DataPackage();
-        package.SetText(text);
-        try
-        {
-            Clipboard.SetContent(package);
-        }
-        catch (COMException)
-        {
-            // Another program holds the clipboard; the copy is lost, as in any app.
-        }
-    }
 
     private async Task PasteFromClipboardAsync()
     {
