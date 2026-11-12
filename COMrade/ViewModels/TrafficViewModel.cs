@@ -18,16 +18,27 @@ public sealed partial class TrafficViewModel : ObservableObject, IDisposable
     private static readonly TimeSpan MinimumInterval = TimeSpan.FromMilliseconds(16);
 
     private readonly Traffic _traffic;
+    private readonly Action<AnalysisColumns> _hiddenChanged;
     private CancellationTokenSource? _follow;
 
-    public TrafficViewModel(Traffic traffic)
+    /// <param name="hidden">The columns the user hid.</param>
+    /// <param name="hiddenChanged">Remembers the columns hidden for the device.</param>
+    public TrafficViewModel(Traffic traffic, AnalysisColumns hidden, Action<AnalysisColumns> hiddenChanged)
     {
         _traffic = traffic;
+        _hiddenChanged = hiddenChanged;
         Rows = new TrafficRows(traffic);
+        Columns = TrafficLayout.Fit(AnalysisColumns.All & ~hidden, 0).Shown;
     }
 
     /// <summary>The rows changed: new traffic, or laid out again.</summary>
     public event EventHandler? Updated;
+
+    /// <summary>Columns were shown or hidden: the view lays out its rows again.</summary>
+    public event EventHandler? ColumnsChanged;
+
+    /// <summary>The columns shown: Hex, Text or both among them.</summary>
+    public AnalysisColumns Columns { get; private set; }
 
     public Traffic Traffic => _traffic;
 
@@ -51,6 +62,17 @@ public sealed partial class TrafficViewModel : ObservableObject, IDisposable
                 _ = FollowAsync(_follow.Token);
             }
         }
+    }
+
+    /// <summary>Shows or hides a column, remembered for the device; Hex and Text are not both hidden.</summary>
+    public void ShowColumn(AnalysisColumns column, bool show)
+    {
+        var columns = TrafficLayout.Show(Columns, column, show);
+        if (columns == Columns)
+            return;
+        Columns = columns;
+        _hiddenChanged(AnalysisColumns.All & ~columns);
+        ColumnsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Shows only the traffic from now on, as Clear does in the terminal.</summary>

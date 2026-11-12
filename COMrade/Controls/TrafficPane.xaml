@@ -5,22 +5,37 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     IsTabStop="True"
     KeyDown="OnKeyDown">
+    <UserControl.Resources>
+        <!-- The columns to show, for the header's Columns button and a right-click on the header. A window of its own, as the tab's other menus. -->
+        <MenuFlyout
+            x:Key="ColumnsMenu"
+            Opening="OnColumnsMenuOpening"
+            ShouldConstrainToRootBounds="False">
+            <ToggleMenuFlyoutItem Click="OnColumnClick" Tag="Time" Text="Time" />
+            <ToggleMenuFlyoutItem Click="OnColumnClick" Tag="Direction" Text="Dir" />
+            <ToggleMenuFlyoutItem Click="OnColumnClick" Tag="From" Text="From" />
+            <ToggleMenuFlyoutItem Click="OnColumnClick" Tag="Hex" Text="Hex" />
+            <ToggleMenuFlyoutItem Click="OnColumnClick" Tag="Text" Text="Text" />
+        </MenuFlyout>
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- The columns, and the way back to the newest rows while scrolled up: as tall either way, so the rows do not move. -->
+        <!-- The columns, the way back to the newest rows while scrolled up and the choice of columns: as tall either way, so the rows do not move. -->
         <Grid
             MinHeight="32"
             Padding="8,2"
             Background="{ThemeResource LayerFillColorDefaultBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="0,0,0,1"
-            ColumnSpacing="16">
+            ColumnSpacing="16"
+            ContextFlyout="{StaticResource ColumnsMenu}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock
@@ -40,6 +55,19 @@
                     <TextBlock Text="Go to bottom" />
                 </StackPanel>
             </HyperlinkButton>
+            <DropDownButton
+                Grid.Column="2"
+                Padding="8,2"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Columns"
+                Flyout="{StaticResource ColumnsMenu}"
+                FontSize="12"
+                ToolTipService.ToolTip="Choose the columns to show">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon FontSize="12" Glyph="&#xE8FD;" />
+                    <TextBlock Text="Columns" />
+                </StackPanel>
+            </DropDownButton>
         </Grid>
 
         <!-- Only the rows on screen exist: a long history costs no more to show than a short one. -->
@@ -72,6 +100,14 @@
                             x:Name="CopyHexItem"
                             Click="OnCopyHexClick"
                             Text="Copy hex only" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutSubItem x:Name="ColumnsItem" Text="Columns">
+                            <ToggleMenuFlyoutItem Click="OnColumnClick" Tag="Time" Text="Time" />
+                            <ToggleMenuFlyoutItem Click="OnColumnClick" Tag="Direction" Text="Dir" />
+                            <ToggleMenuFlyoutItem Click="OnColumnClick" Tag="From" Text="From" />
+                            <ToggleMenuFlyoutItem Click="OnColumnClick" Tag="Hex" Text="Hex" />
+                            <ToggleMenuFlyoutItem Click="OnColumnClick" Tag="Text" Text="Text" />
+                        </MenuFlyoutSubItem>
                     </MenuFlyout>
                 </Canvas.ContextFlyout>
                 <!-- Measures a cell of the font. -->

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Text;
 using COMrade.Core.Sessions;
 using COMrade.Core.Terminal;
@@ -29,16 +28,7 @@ namespace COMrade.Controls;
 /// </summary>
 public sealed partial class TrafficPane : UserControl
 {
-    // A row: the time, RX or TX, who sent it, its bytes in hex, then as text.
-    private const int TimeColumns = 12;
-    private const int DirectionColumns = 3;
-    private const int FromColumns = 7;
-    private const int HexColumn = TimeColumns + 1 + DirectionColumns + 1 + FromColumns + 1;
-    private const int MinimumTextColumns = 8;
     private const double SidePadding = 8;
-
-    // Bytes a row may hold: the most whose hex fits with a column of text for each.
-    private static readonly int[] RowBytes = [32, 16, 8];
 
     // Wheel delta for a row: three rows a notch.
     private const int WheelPerRow = 40;
@@ -62,7 +52,9 @@ public sealed partial class TrafficPane : UserControl
     private bool _follows = true;
     private bool _settingScroll;
     private int _wheel;
-    private int _rowBytes = 16;
+
+    // The columns shown and how they share a row, see TrafficLayout.
+    private TrafficLayout _layout = TrafficLayout.Fit(AnalysisColumns.All, 80);
 
     // The selection: the rows of these bytes and those between them.
     private long? _anchor;
@@ -82,10 +74,17 @@ public sealed partial class TrafficPane : UserControl
         set
         {
             if (_model is not null)
+            {
                 _model.Updated -= OnUpdated;
+                _model.ColumnsChanged -= OnColumnsChanged;
+            }
+
             _model = value;
             if (value is not null)
+            {
                 value.Updated += OnUpdated;
+                value.ColumnsChanged += OnColumnsChanged;
+            }
 
             _follows = true;
             _anchor = _active = null;
@@ -117,6 +116,8 @@ public sealed partial class TrafficPane : UserControl
 
     private void OnUpdated(object? sender, EventArgs e) => Refresh();
 
+    private void OnColumnsChanged(object? sender, EventArgs e) => Fit();
+
     private void ApplyAppearance()
     {
         var scheme = _appearance.Scheme;
@@ -136,17 +137,13 @@ public sealed partial class TrafficPane : UserControl
         Probe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         _cellWidth = Math.Max(1, Probe.DesiredSize.Width / 64);
         _rowHeight = Math.Max(1, Math.Ceiling(Probe.DesiredSize.Height));
-        ShowHeader();
 
         for (var index = 0; index < _pool.Count; index++)
             StyleRow(_pool[index], index);
         Fit();
     }
 
-    private void ShowHeader() =>
-        Header.Text = $"{"Time",-TimeColumns} {"Dir",-DirectionColumns} {"From",-FromColumns} {"Hex".PadRight(TrafficText.HexWidth(_rowBytes))} Text";
-
-    // The rows that fit the pane, the bytes each holds and the columns their text has.
+    // The rows that fit the pane, the columns shown and the room each has.
     private void Fit()
     {
         var (width, height) = (Surface.ActualWidth, Surface.ActualHeight);
@@ -167,10 +164,9 @@ public sealed partial class TrafficPane : UserControl
             row.Width = width;
 
         // Laid out again only when the bytes or the text's columns change.
-        var columns = Math.Max(0, (int)((width - 2 * SidePadding) / _cellWidth) - HexColumn);
-        _rowBytes = Array.Find(RowBytes, bytes => TrafficText.HexWidth(bytes) + 1 + bytes <= columns) is > 0 and var fits ? fits : RowBytes[^1];
-        ShowHeader();
-        RowsModel?.Resize(Math.Max(MinimumTextColumns, columns - TrafficText.HexWidth(_rowBytes) - 1), _rowBytes);
+        _layout = TrafficLayout.Fit(_model?.Columns ?? AnalysisColumns.All, Math.Max(0, (int)((width - 2 * SidePadding) / _cellWidth)));
+        Header.Text = _layout.Header;
+        RowsModel?.Resize(_layout.TextColumns, _layout.RowBytes);
         Refresh();
     }
 
@@ -246,22 +242,16 @@ public sealed partial class TrafficPane : UserControl
         var colour = row.Sender is TrafficSender.Device ? _textBrush : _sentBrush;
         var bytes = Bytes(row);
         block.Inlines.Clear();
-        block.Inlines.Add(new Run { Text = Time(row) + " ", Foreground = _dimBrush });
-        block.Inlines.Add(new Run { Text = Direction(row) + " " + From(row) + " " + Hex(bytes) + " ", Foreground = colour });
+        block.Inlines.Add(new Run { Text = _layout.Time(Time(row)), Foreground = _dimBrush });
+        block.Inlines.Add(new Run { Text = _layout.Who(row) + _layout.Hex(bytes), Foreground = colour });
+        if (!_layout.Shown.HasFlag(AnalysisColumns.Text))
+            return;
         foreach (var (text, isEscape) in TrafficText.Pieces(bytes))
             block.Inlines.Add(new Run { Text = text, Foreground = isEscape ? _dimBrush : colour });
     }
 
-    private string Hex(byte[] bytes) => TrafficText.Hex(bytes, grouped: true).PadRight(TrafficText.HexWidth(_rowBytes));
-
-    private string Time(TrafficRow row) =>
-        (row.Continues ? null : _model?.Traffic.ArrivedAt(row.Offset))?.ToLocalTime().ToString(TrafficText.TimeFormat, CultureInfo.InvariantCulture)
-        ?? new string(' ', TimeColumns);
-
-    // A wrapped row's rest shows only its text.
-    private static string Direction(TrafficRow row) => (row.Continues ? string.Empty : TrafficText.Direction(row.Sender)).PadRight(DirectionColumns);
-
-    private static string From(TrafficRow row) => (row.Continues ? string.Empty : TrafficText.From(row.Sender)).PadRight(FromColumns);
+    // When the row's first byte arrived; none for the rest of a wrapped row.
+    private DateTimeOffset? Time(TrafficRow row) => row.Continues ? null : _model?.Traffic.ArrivedAt(row.Offset);
 
     // Empty when the row's traffic went since it was laid out: the next update drops the row.
     private byte[] Bytes(TrafficRow row)
@@ -409,8 +399,33 @@ public sealed partial class TrafficPane : UserControl
     private bool IsSelected(long offset) =>
         Selected() is { } range && RowsModel!.IndexOf(offset) is var index && index >= range.First && index <= range.Last;
 
-    private void OnMenuOpening(object sender, object e) =>
+    private void OnMenuOpening(object sender, object e)
+    {
         CopyRowsItem.IsEnabled = CopyTextItem.IsEnabled = CopyHexItem.IsEnabled = Selected() is not null;
+        ShowColumnChoices(ColumnsItem.Items);
+    }
+
+    private void OnColumnsMenuOpening(object sender, object e) => ShowColumnChoices(((MenuFlyout)sender).Items);
+
+    // Each column checked when it shows; the last of Hex and Text cannot be unchecked.
+    private void ShowColumnChoices(IEnumerable<MenuFlyoutItemBase> items)
+    {
+        var shown = _model?.Columns ?? AnalysisColumns.All;
+        foreach (var item in items)
+        {
+            if (item is not ToggleMenuFlyoutItem { Tag: string tag } toggle)
+                continue;
+            var column = Enum.Parse<AnalysisColumns>(tag);
+            toggle.IsChecked = shown.HasFlag(column);
+            toggle.IsEnabled = TrafficLayout.Show(shown, column, !toggle.IsChecked) != shown;
+        }
+    }
+
+    private void OnColumnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleMenuFlyoutItem { Tag: string tag } toggle)
+            _model?.ShowColumn(Enum.Parse<AnalysisColumns>(tag), toggle.IsChecked);
+    }
 
     private void OnCopyRowsClick(object sender, RoutedEventArgs e) => CopySelection(CopyKind.Rows);
 
@@ -433,7 +448,7 @@ public sealed partial class TrafficPane : UserControl
             {
                 CopyKind.Text => TrafficText.Format(bytes),
                 CopyKind.Hex => TrafficText.Hex(bytes),
-                _ => $"{Time(row)} {Direction(row)} {From(row)} {Hex(bytes)} {TrafficText.Format(bytes)}",
+                _ => _layout.Format(Time(row), row, bytes),
             }).Append("\r\n");
         }
 

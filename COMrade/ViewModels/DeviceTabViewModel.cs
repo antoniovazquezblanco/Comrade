@@ -53,7 +53,7 @@ public sealed partial class DeviceTabViewModel : TabViewModel
         Session = session;
         Editor = new DeviceSettingsEditor(settings, ApplyAsync);
         Find = new FindViewModel(History, appSettings);
-        Traffic = new TrafficViewModel(session.Traffic);
+        Traffic = new TrafficViewModel(session.Traffic, settings.HiddenAnalysisColumns, hidden => _ = Editor.ChangeAsync(Settings with { HiddenAnalysisColumns = hidden }));
         _store = store;
         _appSettings = appSettings;
         _ui = DispatcherQueue.GetForCurrentThread();
