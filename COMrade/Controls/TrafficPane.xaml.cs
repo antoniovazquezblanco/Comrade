@@ -23,19 +23,22 @@ namespace COMrade.Controls;
 
 /// <summary>
 /// The analysis view: what went over a port both ways, a row per line and sender with the time it
-/// arrived, see <see cref="TrafficRows"/>. Only the rows on screen exist, filled from the traffic
+/// arrived and its bytes in hex and as text, see <see cref="TrafficRows"/>. Only the rows on screen exist, filled from the traffic
 /// as they show. It follows the newest rows until scrolled up, and keeps its rows in view as old
 /// ones go or the rows are laid out again.
 /// </summary>
 public sealed partial class TrafficPane : UserControl
 {
-    // A row: the time, RX or TX, who sent it, then the text.
+    // A row: the time, RX or TX, who sent it, its bytes in hex, then as text.
     private const int TimeColumns = 12;
     private const int DirectionColumns = 3;
     private const int FromColumns = 7;
-    private const int TextColumn = TimeColumns + 1 + DirectionColumns + 1 + FromColumns + 1;
+    private const int HexColumn = TimeColumns + 1 + DirectionColumns + 1 + FromColumns + 1;
     private const int MinimumTextColumns = 8;
     private const double SidePadding = 8;
+
+    // Bytes a row may hold: the most whose hex fits with a column of text for each.
+    private static readonly int[] RowBytes = [32, 16, 8];
 
     // Wheel delta for a row: three rows a notch.
     private const int WheelPerRow = 40;
@@ -59,6 +62,7 @@ public sealed partial class TrafficPane : UserControl
     private bool _follows = true;
     private bool _settingScroll;
     private int _wheel;
+    private int _rowBytes = 16;
 
     // The selection: the rows of these bytes and those between them.
     private long? _anchor;
@@ -107,7 +111,7 @@ public sealed partial class TrafficPane : UserControl
     public void ScrollPages(int pages) => ScrollTo(_top + pages * Math.Max(1, _visible - 1));
 
     /// <summary>Copies the selected rows as shown; false when none is selected.</summary>
-    public bool Copy() => CopySelection(textOnly: false);
+    public bool Copy() => CopySelection(CopyKind.Rows);
 
     private TrafficRows? RowsModel => _model?.Rows;
 
@@ -132,14 +136,17 @@ public sealed partial class TrafficPane : UserControl
         Probe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         _cellWidth = Math.Max(1, Probe.DesiredSize.Width / 64);
         _rowHeight = Math.Max(1, Math.Ceiling(Probe.DesiredSize.Height));
-        Header.Text = $"{"Time",-TimeColumns} {"Dir",-DirectionColumns} {"From",-FromColumns} Text";
+        ShowHeader();
 
         for (var index = 0; index < _pool.Count; index++)
             StyleRow(_pool[index], index);
         Fit();
     }
 
-    // The rows that fit the pane, and the columns their text has.
+    private void ShowHeader() =>
+        Header.Text = $"{"Time",-TimeColumns} {"Dir",-DirectionColumns} {"From",-FromColumns} {"Hex".PadRight(TrafficText.HexWidth(_rowBytes))} Text";
+
+    // The rows that fit the pane, the bytes each holds and the columns their text has.
     private void Fit()
     {
         var (width, height) = (Surface.ActualWidth, Surface.ActualHeight);
@@ -159,9 +166,11 @@ public sealed partial class TrafficPane : UserControl
         foreach (var row in _pool)
             row.Width = width;
 
-        // Laid out again only when the columns change.
-        if (RowsModel is { } rows)
-            rows.Columns = Math.Max(MinimumTextColumns, (int)((width - 2 * SidePadding) / _cellWidth) - TextColumn);
+        // Laid out again only when the bytes or the text's columns change.
+        var columns = Math.Max(0, (int)((width - 2 * SidePadding) / _cellWidth) - HexColumn);
+        _rowBytes = Array.Find(RowBytes, bytes => TrafficText.HexWidth(bytes) + 1 + bytes <= columns) is > 0 and var fits ? fits : RowBytes[^1];
+        ShowHeader();
+        RowsModel?.Resize(Math.Max(MinimumTextColumns, columns - TrafficText.HexWidth(_rowBytes) - 1), _rowBytes);
         Refresh();
     }
 
@@ -235,12 +244,15 @@ public sealed partial class TrafficPane : UserControl
     private void Fill(TextBlock block, TrafficRow row)
     {
         var colour = row.Sender is TrafficSender.Device ? _textBrush : _sentBrush;
+        var bytes = Bytes(row);
         block.Inlines.Clear();
         block.Inlines.Add(new Run { Text = Time(row) + " ", Foreground = _dimBrush });
-        block.Inlines.Add(new Run { Text = Direction(row) + " " + From(row) + " ", Foreground = colour });
-        foreach (var (text, isEscape) in TrafficText.Pieces(Bytes(row)))
+        block.Inlines.Add(new Run { Text = Direction(row) + " " + From(row) + " " + Hex(bytes) + " ", Foreground = colour });
+        foreach (var (text, isEscape) in TrafficText.Pieces(bytes))
             block.Inlines.Add(new Run { Text = text, Foreground = isEscape ? _dimBrush : colour });
     }
+
+    private string Hex(byte[] bytes) => TrafficText.Hex(bytes, grouped: true).PadRight(TrafficText.HexWidth(_rowBytes));
 
     private string Time(TrafficRow row) =>
         (row.Continues ? null : _model?.Traffic.ArrivedAt(row.Offset))?.ToLocalTime().ToString(TrafficText.TimeFormat, CultureInfo.InvariantCulture)
@@ -398,14 +410,16 @@ public sealed partial class TrafficPane : UserControl
         Selected() is { } range && RowsModel!.IndexOf(offset) is var index && index >= range.First && index <= range.Last;
 
     private void OnMenuOpening(object sender, object e) =>
-        CopyRowsItem.IsEnabled = CopyTextItem.IsEnabled = Selected() is not null;
+        CopyRowsItem.IsEnabled = CopyTextItem.IsEnabled = CopyHexItem.IsEnabled = Selected() is not null;
 
-    private void OnCopyRowsClick(object sender, RoutedEventArgs e) => CopySelection(textOnly: false);
+    private void OnCopyRowsClick(object sender, RoutedEventArgs e) => CopySelection(CopyKind.Rows);
 
-    private void OnCopyTextClick(object sender, RoutedEventArgs e) => CopySelection(textOnly: true);
+    private void OnCopyTextClick(object sender, RoutedEventArgs e) => CopySelection(CopyKind.Text);
 
-    // The rows as shown, or their text only, a line each.
-    private bool CopySelection(bool textOnly)
+    private void OnCopyHexClick(object sender, RoutedEventArgs e) => CopySelection(CopyKind.Hex);
+
+    // The rows as shown, or only their text or hex, a line each.
+    private bool CopySelection(CopyKind kind)
     {
         if (Selected() is not { } range)
             return false;
@@ -414,13 +428,24 @@ public sealed partial class TrafficPane : UserControl
         for (var index = range.First; index <= range.Last; index++)
         {
             var row = RowsModel![index];
-            if (!textOnly)
-                copied.Append(Time(row)).Append(' ').Append(Direction(row)).Append(' ').Append(From(row)).Append(' ');
-            copied.Append(TrafficText.Format(Bytes(row))).Append("\r\n");
+            var bytes = Bytes(row);
+            copied.Append(kind switch
+            {
+                CopyKind.Text => TrafficText.Format(bytes),
+                CopyKind.Hex => TrafficText.Hex(bytes),
+                _ => $"{Time(row)} {Direction(row)} {From(row)} {Hex(bytes)} {TrafficText.Format(bytes)}",
+            }).Append("\r\n");
         }
 
         ClipboardText.Set(copied.ToString());
         return true;
+    }
+
+    private enum CopyKind
+    {
+        Rows,
+        Text,
+        Hex,
     }
 
     private static SolidColorBrush Brush(uint rgb) =>

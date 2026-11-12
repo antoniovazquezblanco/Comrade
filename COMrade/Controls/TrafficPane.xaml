@@ -58,7 +58,7 @@
                 PointerWheelChanged="OnSurfaceWheel"
                 SizeChanged="OnSurfaceSizeChanged">
                 <Canvas.ContextFlyout>
-                    <!-- A window of its own: the terminal beside the pane is a native window that hides anything drawn in the main window. -->
+                    <!-- A window of its own, as the tab's other menus: it can show past the window's edge. -->
                     <MenuFlyout Opening="OnMenuOpening" ShouldConstrainToRootBounds="False">
                         <MenuFlyoutItem
                             x:Name="CopyRowsItem"
@@ -68,6 +68,10 @@
                             x:Name="CopyTextItem"
                             Click="OnCopyTextClick"
                             Text="Copy text only" />
+                        <MenuFlyoutItem
+                            x:Name="CopyHexItem"
+                            Click="OnCopyHexClick"
+                            Text="Copy hex only" />
                     </MenuFlyout>
                 </Canvas.ContextFlyout>
                 <!-- Measures a cell of the font. -->

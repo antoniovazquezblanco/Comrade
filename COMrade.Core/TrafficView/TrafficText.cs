@@ -77,6 +77,23 @@ public static class TrafficText
         return pieces;
     }
 
+    /// <summary>The bytes in hex, e.g. "41 54 0d", with a second space after every 8 when <paramref name="grouped"/>.</summary>
+    public static string Hex(ReadOnlySpan<byte> bytes, bool grouped = false)
+    {
+        var hex = new StringBuilder(bytes.Length * 3);
+        for (var index = 0; index < bytes.Length; index++)
+        {
+            if (index > 0)
+                hex.Append(grouped && index % 8 == 0 ? "  " : " ");
+            hex.Append(bytes[index].ToString("x2", CultureInfo.InvariantCulture));
+        }
+
+        return hex.ToString();
+    }
+
+    /// <summary>Columns the grouped hex of this many bytes takes.</summary>
+    public static int HexWidth(int bytes) => bytes <= 0 ? 0 : 3 * bytes - 1 + (bytes - 1) / 8;
+
     /// <summary>RX for what the device sent, TX for what was sent to it.</summary>
     public static string Direction(TrafficSender sender) => sender is TrafficSender.Device ? "RX" : "TX";
 

@@ -78,6 +78,28 @@ public class TrafficTextTests
     }
 
     [Fact]
+    public void Hex_shows_each_byte_with_a_gap_every_eight_when_grouped()
+    {
+        byte[] bytes = [.. Enumerable.Range(0x41, 17).Select(value => (byte)value)];
+
+        Assert.Equal("41 54 0d", TrafficText.Hex("AT\r"u8));
+        Assert.Equal("41 42 43 44 45 46 47 48  49 4a 4b 4c 4d 4e 4f 50  51", TrafficText.Hex(bytes, grouped: true));
+        Assert.Equal("", TrafficText.Hex([]));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(16)]
+    [InlineData(32)]
+    public void The_width_of_grouped_hex_is_what_it_takes(int count)
+    {
+        Assert.Equal(TrafficText.Hex(new byte[count], grouped: true).Length, TrafficText.HexWidth(count));
+    }
+
+    [Fact]
     public void The_device_receives_and_the_console_and_mcp_send()
     {
         TrafficSender[] senders = [TrafficSender.Device, TrafficSender.Keyboard, TrafficSender.Assistant, TrafficSender.Comrade];

@@ -12,8 +12,9 @@ public readonly record struct TrafficRow(long Offset, int Length, TrafficSender 
 /// <summary>
 /// A session's traffic laid out in rows for the analysis view, see <see cref="TrafficText"/>. A row
 /// ends after a line feed, where a run of the traffic ends (another sender, or a pause), and before
-/// a character that would not fit <see cref="Columns"/>. As the traffic grows, only the last row
-/// is laid out again; all of them are when <see cref="Columns"/>, <see cref="ShowSent"/> or the
+/// a character that would not fit its text in <see cref="Columns"/> or its bytes in
+/// <see cref="MaxBytes"/>, the hex column's. As the traffic grows, only the last row is laid out
+/// again; all of them are when the widths (<see cref="Resize"/>), <see cref="ShowSent"/> or the
 /// start (<see cref="Clear"/>) change. Rows go with the traffic the session no longer keeps.
 /// </summary>
 /// <remarks>Not thread-safe: the view uses it on its own thread. The traffic is.</remarks>
@@ -30,19 +31,22 @@ public sealed class TrafficRows(Traffic traffic)
     // The traffic is laid out up to here.
     private long _laidOut;
 
+    private int _columns = 80;
+    private int _maxBytes = int.MaxValue;
+
     /// <summary>Columns a row's text fits in.</summary>
     public int Columns
     {
-        get;
-        set
-        {
-            value = Math.Max(1, value);
-            if (value == field)
-                return;
-            field = value;
-            Relayout();
-        }
-    } = 80;
+        get => _columns;
+        set => Resize(value, _maxBytes);
+    }
+
+    /// <summary>Bytes a row holds at most; no limit at first.</summary>
+    public int MaxBytes
+    {
+        get => _maxBytes;
+        set => Resize(_columns, value);
+    }
 
     /// <summary>The rows include what was sent to the device, not only what it sent; for the RX/TX filter to come.</summary>
     public bool ShowSent
@@ -91,6 +95,16 @@ public sealed class TrafficRows(Traffic traffic)
 
         Layout(from, end, continues);
         return true;
+    }
+
+    /// <summary>Sets <see cref="Columns"/> and <see cref="MaxBytes"/>, laying the rows out again once if either changes.</summary>
+    public void Resize(int columns, int maxBytes)
+    {
+        (columns, maxBytes) = (Math.Max(1, columns), Math.Max(1, maxBytes));
+        if (columns == _columns && maxBytes == _maxBytes)
+            return;
+        (_columns, _maxBytes) = (columns, maxBytes);
+        Relayout();
     }
 
     /// <summary>Shows only the traffic that comes from now on, as Clear does in the terminal.</summary>
@@ -174,8 +188,12 @@ public sealed class TrafficRows(Traffic traffic)
         {
             var unit = TrafficText.Next(bytes[index..]);
 
-            // A character that may still be completed waits in the last row, which is laid out again.
-            if (width > 0 && width + unit.Width > Columns && !(unit.IsIncomplete && isLast))
+            // A character that may still be completed waits in the last row, which is laid out
+            // again: its escapes may not fit the text for now, but its bytes do, as they must
+            // once it is complete.
+            var full = index - start + unit.Length > _maxBytes
+                || (width + unit.Width > _columns && !(unit.IsIncomplete && isLast));
+            if (index > start && full)
             {
                 Add(offset + start, index - start, run.Sender, continues, closed: true);
                 (start, width, continues) = (index, 0, true);
