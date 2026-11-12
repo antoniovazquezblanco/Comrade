@@ -58,7 +58,7 @@ public sealed partial class DeviceTabViewModel : IAssistantTab
             return false;
         if (typed is not null && Settings.Terminal.LocalEcho)
             History.Write(KeyboardInput.Echo(typed));
-        return await Session.SendAsync(data);
+        return await Session.SendAsync(data, TrafficSender.Assistant);
     }
 
     Task<bool> IAssistantTab.ChangeSettingsAsync(DeviceSettings settings) => _ui.InvokeAsync(async () =>

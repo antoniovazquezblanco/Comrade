@@ -4,7 +4,8 @@ using COMrade.Core.Settings;
 namespace COMrade.Core.Mcp;
 
 // What the tools return to assistants, as JSON: camelCase names, enums as text, nulls left out.
-// Device output only ever appears inside string fields, so it cannot pass for COMrade's own words.
+// What the device sent only ever appears inside string fields (Output, Text, Hex), so it cannot
+// pass for COMrade's own words.
 
 /// <summary>The result of list_ports.</summary>
 internal sealed record PortsResult(AiAccess Access, IReadOnlyList<PortEntry> Ports);
@@ -77,6 +78,27 @@ internal sealed record ReadResult(
     long UnreadBytes,
     long? MissedBytes,
     long? SkippedBytes);
+
+/// <summary>The result of read_traffic.</summary>
+/// <param name="Traffic">What went over the port, in order.</param>
+/// <param name="Bytes">Bytes returned, both ways together.</param>
+internal sealed record TrafficResult(
+    string Port,
+    PortSessionState State,
+    IReadOnlyList<TrafficPiece> Traffic,
+    int Bytes,
+    long UnreadBytes,
+    long? MissedBytes,
+    long? SkippedBytes);
+
+/// <summary>Bytes one side sent in a row.</summary>
+/// <param name="Direction">rx: from the device; tx: to the device.</param>
+/// <param name="From">device; user: typed or pasted in COMrade's terminal, or the terminal's own answers to the device's queries, such as its cursor position; assistant: an AI assistant through MCP, you included; comrade: COMrade itself.</param>
+/// <param name="At">When the first byte went over the port; the start of the run when you read from its middle.</param>
+/// <param name="Text">The bytes as text: rx without colour codes, tx with every control character; left out with hex.</param>
+/// <param name="Hex">The bytes in hex, when asked for.</param>
+/// <param name="Bytes">How many bytes.</param>
+internal sealed record TrafficPiece(string Direction, string From, DateTimeOffset At, string? Text, string? Hex, int Bytes);
 
 /// <summary>The result of wait_for and send_command.</summary>
 /// <param name="Matched">The pattern was found; null when there was none to find.</param>

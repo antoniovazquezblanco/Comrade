@@ -80,7 +80,7 @@ internal sealed class FakeAssistantTab(PortSession session, DeviceSettings setti
     {
         if (typed is not null && Settings.Terminal.LocalEcho)
             Echoed.Add(typed);
-        return await Session.SendAsync(data);
+        return await Session.SendAsync(data, TrafficSender.Assistant);
     }
 
     public async Task<bool> ChangeSettingsAsync(DeviceSettings settings)

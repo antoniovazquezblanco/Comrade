@@ -97,6 +97,9 @@ public sealed class PortSession : IAsyncDisposable
     /// <summary>The raw bytes received, across reopens, for AI assistants.</summary>
     public ReceiveBuffer Received { get; } = new();
 
+    /// <summary>What went over the port both ways, across reopens, marked with who sent it, for AI assistants.</summary>
+    public Traffic Traffic { get; } = new();
+
     /// <summary>Completes when the device arrivals and removals reported so far have been handled.</summary>
     internal Task DeviceEventsHandled
     {
@@ -147,7 +150,8 @@ public sealed class PortSession : IAsyncDisposable
     /// false when the port is not open, closes while a paced send is under way, or the write failed.
     /// </summary>
     /// <remarks>One send at a time, so a paced send is not interleaved with the next one.</remarks>
-    public async Task<bool> SendAsync(ReadOnlyMemory<byte> data)
+    /// <param name="from">Who sends, for <see cref="Traffic"/>, where the bytes go as they go out, before the device can answer them.</param>
+    public async Task<bool> SendAsync(ReadOnlyMemory<byte> data, TrafficSender from)
     {
         var connection = _connection;
         if (connection is null)
@@ -159,6 +163,7 @@ public sealed class PortSession : IAsyncDisposable
             var settings = Settings;
             if (!settings.IsPaced)
             {
+                Record(from, data.Span);
                 await connection.WriteAsync(data, CancellationToken.None);
                 Interlocked.Add(ref _bytesSent, data.Length);
                 return true;
@@ -169,6 +174,7 @@ public sealed class PortSession : IAsyncDisposable
                 if (_connection != connection)
                     return false;
 
+                Record(from, data.Span.Slice(index, 1));
                 await connection.WriteAsync(data.Slice(index, 1), CancellationToken.None);
                 Interlocked.Increment(ref _bytesSent);
 
@@ -190,6 +196,8 @@ public sealed class PortSession : IAsyncDisposable
             _sendGate.Release();
         }
     }
+
+    private void Record(TrafficSender from, ReadOnlySpan<byte> data) => Traffic.Append(from, data, _time.GetUtcNow());
 
     // A line ends with LF, or with a CR that no LF follows.
     private static bool EndsLine(ReadOnlySpan<byte> data, int index) =>
@@ -427,10 +435,11 @@ public sealed class PortSession : IAsyncDisposable
         }
     }
 
-    // Bytes the detection sends count as sent, like typed ones.
+    // Bytes the detection sends count as sent, like typed ones, and as COMrade's own.
     private Func<ReadOnlyMemory<byte>>? CountAsSent(Func<ReadOnlyMemory<byte>>? wake) => wake is null ? null : () =>
     {
         var bytes = wake();
+        Record(TrafficSender.Comrade, bytes.Span);
         Interlocked.Add(ref _bytesSent, bytes.Length);
         return bytes;
     };
@@ -516,7 +525,9 @@ public sealed class PortSession : IAsyncDisposable
 
     private void Report(byte[] data)
     {
+        // The traffic first: whoever sees the bytes in Received finds them there too.
         Interlocked.Add(ref _bytesReceived, data.Length);
+        Record(TrafficSender.Device, data);
         Received.Append(data);
         DataReceived?.Invoke(this, data);
     }

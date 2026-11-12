@@ -72,7 +72,7 @@ public class PortSessionTests : IAsyncDisposable
     {
         await _session.OpenAsync();
 
-        Assert.True(await _session.SendAsync("ls\r"u8.ToArray()));
+        Assert.True(await _session.SendAsync("ls\r"u8.ToArray(), TrafficSender.Keyboard));
 
         Assert.Equal("ls\r"u8.ToArray(), _driver.Current.Written);
         Assert.Equal(3, _session.BytesSent);
@@ -84,7 +84,7 @@ public class PortSessionTests : IAsyncDisposable
         await _session.OpenAsync();
         await _session.ApplySettingsAsync(SerialSettings.Default with { CharacterDelayMilliseconds = 10 });
 
-        var send = _session.SendAsync("abc"u8.ToArray());
+        var send = _session.SendAsync("abc"u8.ToArray(), TrafficSender.Keyboard);
         await WaitForAsync(() => _driver.Current.Written.Length == 1);
         _time.Advance(TimeSpan.FromMilliseconds(9));
         await Task.Delay(50, TestContext.Current.CancellationToken);
@@ -105,7 +105,7 @@ public class PortSessionTests : IAsyncDisposable
         await _session.OpenAsync();
         await _session.ApplySettingsAsync(SerialSettings.Default with { LineDelayMilliseconds = 100 });
 
-        var send = _session.SendAsync("a\r\nb\r"u8.ToArray());
+        var send = _session.SendAsync("a\r\nb\r"u8.ToArray(), TrafficSender.Keyboard);
         await WaitForAsync(() => _driver.Current.Written.Length == 3);
         _time.Advance(TimeSpan.FromMilliseconds(99));
         await Task.Delay(50, TestContext.Current.CancellationToken);
@@ -125,7 +125,7 @@ public class PortSessionTests : IAsyncDisposable
         await _session.ApplySettingsAsync(SerialSettings.Default with { CharacterDelayMilliseconds = 1000 });
         var connection = _driver.Current;
 
-        var send = _session.SendAsync("abc"u8.ToArray());
+        var send = _session.SendAsync("abc"u8.ToArray(), TrafficSender.Keyboard);
         await WaitForAsync(() => connection.Written.Length == 1);
         await _session.CloseAsync();
         await AdvanceTimeUntilAsync(() => send.IsCompleted);
@@ -137,7 +137,7 @@ public class PortSessionTests : IAsyncDisposable
     [Fact]
     public async Task Sending_while_closed_does_nothing()
     {
-        Assert.False(await _session.SendAsync("ls\r"u8.ToArray()));
+        Assert.False(await _session.SendAsync("ls\r"u8.ToArray(), TrafficSender.Keyboard));
         Assert.Equal(0, _session.BytesSent);
     }
 
@@ -293,7 +293,7 @@ public class PortSessionTests : IAsyncDisposable
         await _session.OpenAsync();
         _driver.Current.FailWrites = true;
 
-        Assert.False(await _session.SendAsync("x"u8.ToArray()));
+        Assert.False(await _session.SendAsync("x"u8.ToArray(), TrafficSender.Keyboard));
 
         Assert.Equal(PortSessionState.Waiting, _session.State);
     }
@@ -486,10 +486,16 @@ public class PortSessionTests : IAsyncDisposable
         Assert.Equal(2, _session.BytesSent);
 
         // Reading goes on at the detected speed, after what the device printed while detecting.
-        await _session.SendAsync("\r"u8.ToArray());
+        await WaitForAsync(() => _session.BytesReceived == prompt.Length);
+        await _session.SendAsync("\r"u8.ToArray(), TrafficSender.Keyboard);
         await WaitForAsync(() => _session.BytesReceived == prompt.Length * 2);
         lock (received)
             Assert.Equal([.. prompt, .. prompt], received);
+
+        // Enter at each speed was COMrade's; the user's came after what the device printed.
+        var runs = _session.Traffic.Read(0, 1000).Runs;
+        Assert.Equal("\r\r"u8.ToArray(), runs.Where(run => run.Sender is TrafficSender.Comrade).SelectMany(run => run.Bytes));
+        Assert.Equal([TrafficSender.Comrade, TrafficSender.Device, TrafficSender.Keyboard, TrafficSender.Device], runs.Select(run => run.Sender));
     }
 
     [Fact]
@@ -630,6 +636,68 @@ public class PortSessionTests : IAsyncDisposable
         await PlugAsync(new PortDevice(@"USB\VID_1A86&PID_7523\5&2F3C1B2&0&1", "COM13", "USB-SERIAL CH340 (COM13)", LocationPath: "USB(1)"));
 
         Assert.Equal(PortSessionState.Waiting, _session.State);
+    }
+
+    [Fact]
+    public async Task Traffic_keeps_both_ways_in_order_with_who_sent_it()
+    {
+        await _session.OpenAsync();
+        var received = _time.GetUtcNow();
+        _driver.Current.Receive("login: "u8.ToArray());
+        await WaitForAsync(() => _session.Traffic.End == 7);
+        _time.Advance(TimeSpan.FromSeconds(2));
+
+        await _session.SendAsync("root\r"u8.ToArray(), TrafficSender.Keyboard);
+        await _session.SendAsync("AT\r"u8.ToArray(), TrafficSender.Assistant);
+
+        var (start, runs) = _session.Traffic.Read(0, 100);
+        Assert.Equal(0, start);
+        Assert.Equal([TrafficSender.Device, TrafficSender.Keyboard, TrafficSender.Assistant], runs.Select(run => run.Sender));
+        Assert.Equal(["login: ", "root\r", "AT\r"], runs.Select(run => System.Text.Encoding.ASCII.GetString(run.Bytes)));
+        Assert.Equal([received, _time.GetUtcNow(), _time.GetUtcNow()], runs.Select(run => run.At));
+    }
+
+    [Fact]
+    public async Task Traffic_keeps_what_is_sent_as_it_goes_out()
+    {
+        Assert.False(await _session.SendAsync("ls\r"u8.ToArray(), TrafficSender.Keyboard));
+        Assert.Equal(0, _session.Traffic.End);
+        await _session.OpenAsync();
+        _driver.Current.FailWrites = true;
+
+        // Kept before the write, so before the device can answer it: a write that fails, and takes
+        // the port down, is kept too.
+        Assert.False(await _session.SendAsync("ls\r"u8.ToArray(), TrafficSender.Keyboard));
+
+        Assert.Equal(3, _session.Traffic.End);
+    }
+
+    [Fact]
+    public async Task What_is_sent_is_kept_before_the_answer_to_it()
+    {
+        await _session.OpenAsync();
+        _driver.Current.Prompt = "# "u8.ToArray();
+
+        await _session.SendAsync("\r"u8.ToArray(), TrafficSender.Keyboard);
+        await WaitForAsync(() => _session.Traffic.End == 3);
+
+        Assert.Equal([TrafficSender.Keyboard, TrafficSender.Device], _session.Traffic.Read(0, 100).Runs.Select(run => run.Sender));
+    }
+
+    [Fact]
+    public async Task Traffic_keeps_a_paced_send_as_it_goes()
+    {
+        await _session.OpenAsync();
+        await _session.ApplySettingsAsync(SerialSettings.Default with { CharacterDelayMilliseconds = 1000 });
+        var connection = _driver.Current;
+
+        var send = _session.SendAsync("abc"u8.ToArray(), TrafficSender.Assistant);
+        await WaitForAsync(() => connection.Written.Length == 1);
+        await _session.CloseAsync();
+        await AdvanceTimeUntilAsync(() => send.IsCompleted);
+
+        var run = Assert.Single(_session.Traffic.Read(0, 100).Runs);
+        Assert.Equal((TrafficSender.Assistant, "a"), (run.Sender, System.Text.Encoding.ASCII.GetString(run.Bytes)));
     }
 
     private PortSession CreateSession(string deviceId) =>

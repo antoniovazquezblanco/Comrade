@@ -578,6 +578,129 @@ public sealed class AssistantToolsTests : IAsyncDisposable
 
     private static DeviceSettings WithMcp() => DeviceSettings.Default with { McpEnabled = true };
 
+    // Both ways.
+
+    [Fact]
+    public async Task Read_traffic_tells_what_the_device_sent_from_what_was_sent_to_it_and_by_whom()
+    {
+        var tab = await OpenTabAsync(Ch340);
+        await ReceiveAsync(tab, "login: ");
+        await _tools.WriteAsync("COM5", text: "root\r");
+        await tab.Session.SendAsync("ls\r"u8.ToArray(), TrafficSender.Keyboard);
+        await tab.Session.SendAsync("AT\r"u8.ToArray(), TrafficSender.Comrade);
+        await ReceiveAsync(tab, "# ");
+
+        var result = await _tools.ReadTrafficAsync("COM5", timeoutMs: 0, cancellationToken: Cancellation);
+
+        Assert.Equal(
+            [("rx", "device", "login: "), ("tx", "assistant", "root\r"), ("tx", "user", "ls\r"), ("tx", "comrade", "AT\r"), ("rx", "device", "# ")],
+            result.Traffic.Select(piece => (piece.Direction, piece.From, piece.Text)));
+        Assert.Equal(20, result.Bytes);
+        Assert.Equal(0, result.UnreadBytes);
+        Assert.All(result.Traffic, piece => Assert.Null(piece.Hex));
+    }
+
+    [Fact]
+    public async Task Read_traffic_decodes_each_side_on_its_own()
+    {
+        var tab = await OpenTabAsync(Ch340);
+        await ReceiveAsync(tab, [(byte)'c', (byte)'a', (byte)'f', 0xC3]);
+        await tab.Session.SendAsync("x"u8.ToArray(), TrafficSender.Keyboard);
+        await ReceiveAsync(tab, [0xA9, (byte)'\e', (byte)'[', (byte)'0', (byte)'m']);
+
+        var result = await _tools.ReadTrafficAsync("COM5", timeoutMs: 0, cancellationToken: Cancellation);
+
+        Assert.Equal(["caf", "x", "\xE9"], result.Traffic.Select(piece => piece.Text));
+    }
+
+    [Fact]
+    public async Task Read_traffic_gives_hex_when_asked()
+    {
+        var tab = await OpenTabAsync(Ch340);
+        await ReceiveAsync(tab, [0x7E, 0x01]);
+        await tab.Session.SendAsync(new byte[] { 0x0D }, TrafficSender.Comrade);
+
+        var result = await _tools.ReadTrafficAsync("COM5", timeoutMs: 0, hex: true, cancellationToken: Cancellation);
+
+        Assert.Equal([("7E 01", (string?)null), ("0D", null)], result.Traffic.Select(piece => (piece.Hex, piece.Text)));
+    }
+
+    [Fact]
+    public async Task Read_traffic_and_read_keep_their_own_places()
+    {
+        var tab = await OpenTabAsync(Ch340);
+        await ReceiveAsync(tab, "boot\r\n");
+
+        var traffic = await _tools.ReadTrafficAsync("COM5", timeoutMs: 0, cancellationToken: Cancellation);
+        var read = await _tools.ReadAsync("COM5", timeoutMs: 0, cancellationToken: Cancellation);
+        var again = await _tools.ReadTrafficAsync("COM5", timeoutMs: 0, cancellationToken: Cancellation);
+
+        Assert.Equal("boot\r\n", traffic.Traffic.Single().Text);
+        Assert.Equal("boot\r\n", read.Output);
+        Assert.Empty(again.Traffic);
+    }
+
+    [Fact]
+    public async Task Read_traffic_waits_for_traffic_either_way()
+    {
+        var tab = await OpenTabAsync(Ch340);
+        await _tools.ReadTrafficAsync("COM5", timeoutMs: 0, cancellationToken: Cancellation);
+
+        var read = _tools.ReadTrafficAsync("COM5", timeoutMs: 5000, cancellationToken: Cancellation);
+        await tab.Session.SendAsync("reset\r"u8.ToArray(), TrafficSender.Comrade);
+
+        var piece = Assert.Single((await read).Traffic);
+        Assert.Equal(("tx", "comrade", "reset\r"), (piece.Direction, piece.From, piece.Text));
+    }
+
+    [Fact]
+    public async Task Read_traffic_keeps_every_control_character_of_what_was_sent()
+    {
+        var tab = await OpenTabAsync(Ch340);
+        await _tools.WriteAsync("COM5", text: "\x03");
+        await ReceiveAsync(tab, "^C\r\n\x1B[32m# \x1B[0m");
+        await tab.Session.SendAsync("\x1B[A\r"u8.ToArray(), TrafficSender.Keyboard);
+
+        var result = await _tools.ReadTrafficAsync("COM5", timeoutMs: 0, cancellationToken: Cancellation);
+
+        Assert.Equal(["\x03", "^C\r\n# ", "\x1B[A\r"], result.Traffic.Select(piece => piece.Text));
+    }
+
+    [Fact]
+    public async Task Read_traffic_returns_at_most_512_pieces_at_a_time()
+    {
+        var tab = await OpenTabAsync(Ch340);
+        _ = await _tools.ReadTrafficAsync("COM5", timeoutMs: 0, cancellationToken: Cancellation);
+        // The device and another sender taking turns a byte at a time.
+        for (var i = 0; i < 300; i++)
+        {
+            tab.Session.Traffic.Append(TrafficSender.Device, "a"u8, DateTimeOffset.UtcNow);
+            tab.Session.Traffic.Append(TrafficSender.Comrade, "b"u8, DateTimeOffset.UtcNow);
+        }
+
+        var first = await _tools.ReadTrafficAsync("COM5", timeoutMs: 0, cancellationToken: Cancellation);
+        var rest = await _tools.ReadTrafficAsync("COM5", timeoutMs: 0, cancellationToken: Cancellation);
+
+        Assert.Equal(512, first.Traffic.Count);
+        Assert.Equal(88, first.UnreadBytes);
+        Assert.Equal(88, rest.Traffic.Count);
+        Assert.Equal("a", first.Traffic[0].Text);
+        Assert.Equal("b", rest.Traffic[^1].Text);
+    }
+
+    [Fact]
+    public async Task Read_traffic_can_skip_to_the_latest()
+    {
+        var tab = await OpenTabAsync(Ch340);
+        await ReceiveAsync(tab, "old output\r\n");
+        await tab.Session.SendAsync("new"u8.ToArray(), TrafficSender.Keyboard);
+
+        var result = await _tools.ReadTrafficAsync("COM5", timeoutMs: 0, maxBytes: 5, latest: true, cancellationToken: Cancellation);
+
+        Assert.Equal([("device", "\r\n"), ("user", "new")], result.Traffic.Select(piece => (piece.From, piece.Text)));
+        Assert.Equal(10, result.SkippedBytes);
+    }
+
     private async Task<FakeAssistantTab> OpenTabAsync(SerialPortInfo port, DeviceSettings? settings = null)
     {
         var tab = _host.AddTab(port, settings);
