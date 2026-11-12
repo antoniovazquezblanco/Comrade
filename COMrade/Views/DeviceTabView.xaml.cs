@@ -45,6 +45,7 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         viewModel.TerminalSettingsChanged += OnTerminalSettingsChanged;
         viewModel.TerminalMessage += OnTerminalMessage;
         viewModel.ClearRequested += OnClearRequested;
+        viewModel.AssistantSending += OnAssistantSending;
         viewModel.PropertyChanged += OnPropertyChanged;
         Terminal.IsScrolledUpChanged += OnIsScrolledUpChanged;
 
@@ -265,6 +266,7 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         ViewModel.TerminalSettingsChanged -= OnTerminalSettingsChanged;
         ViewModel.TerminalMessage -= OnTerminalMessage;
         ViewModel.ClearRequested -= OnClearRequested;
+        ViewModel.AssistantSending -= OnAssistantSending;
         ViewModel.PropertyChanged -= OnPropertyChanged;
         ViewModel.Find.Searched -= OnSearched;
         ViewModel.Find.Chosen -= OnChosen;
@@ -312,6 +314,9 @@ public sealed partial class DeviceTabView : UserControl, IDisposable
         if (ViewModel.Find.IsOpen)
             ViewModel.Find.RefreshCommand.Execute(null);
     }
+
+    // What an assistant sends shows as if typed, and typing brings the terminal to the newest output.
+    private void OnAssistantSending(object? sender, EventArgs e) => Terminal.FollowOutput();
 
     private void OnIsScrolledUpChanged(object? sender, EventArgs e) =>
         ScrollToBottomButton.Visibility = Terminal.IsScrolledUp ? Visibility.Visible : Visibility.Collapsed;

@@ -19,6 +19,9 @@ public sealed partial class DeviceTabViewModel : IAssistantTab
 {
     private AssistantStatus _assistant = AssistantStatus.None;
 
+    /// <summary>An AI assistant is sending to the device, as if typing. Raised on the UI thread.</summary>
+    public event EventHandler? AssistantSending;
+
     /// <summary>MCP in the toolbar, shown while AI access is set to per tab.</summary>
     public bool ShowMcpToggle => _appSettings.Current.AiAccess is AiAccess.PerTab;
 
@@ -51,11 +54,13 @@ public sealed partial class DeviceTabViewModel : IAssistantTab
 
     Task IAssistantTab.OpenAsync() => _ui.InvokeAsync(OpenAsync);
 
-    // Shown like typed text, before it goes out; nothing is shown when it cannot go out.
+    // Shown like typed text, before it goes out; nothing is shown when it cannot go out. Like
+    // typing, it brings the terminal to the newest output.
     async Task<bool> IAssistantTab.SendAsync(byte[] data, string? typed)
     {
         if (Session.State is not PortSessionState.Open)
             return false;
+        _ui.TryEnqueue(() => AssistantSending?.Invoke(this, EventArgs.Empty));
         if (typed is not null && Settings.Terminal.LocalEcho)
             History.Write(KeyboardInput.Echo(typed));
         return await Session.SendAsync(data, TrafficSender.Assistant);

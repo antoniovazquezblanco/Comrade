@@ -119,6 +119,16 @@ public sealed partial class TerminalView : UserControl
     /// <summary>Shows the newest output.</summary>
     public void ScrollToBottom() => Term.ScrollTo(int.MaxValue);
 
+    /// <summary>
+    /// Shows the newest output and keeps up with what arrives after it, as typing does: the
+    /// selection goes too, since the terminal holds the view still on selected text.
+    /// </summary>
+    public void FollowOutput()
+    {
+        Term.ClearSelection();
+        ScrollToBottom();
+    }
+
     /// <summary>Font, colours and cursor; applied at once, also to text already shown.</summary>
     public TerminalAppearance Appearance
     {
